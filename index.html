@@ -29,9 +29,7 @@
     padding-bottom:3rem;
   }
   .wrap{max-width:640px;margin:0 auto;padding:1.1rem 1rem 2rem;}
-  header{display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-bottom:1rem;}
-  header h1{font-size:19px;font-weight:600;margin:0;line-height:1.25;}
-  header p{margin:2px 0 0;font-size:12.5px;color:var(--ink-soft);}
+  header{display:flex;align-items:center;justify-content:flex-end;gap:.75rem;margin-bottom:.7rem;}
   .sound-toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-soft);white-space:nowrap;}
   .sound-toggle input{width:34px;height:20px;accent-color:var(--accent);}
   .typebar{display:flex;gap:8px;margin-bottom:.6rem;}
@@ -41,10 +39,6 @@
   .typechip .tsub{display:block;font-size:11.5px;color:var(--ink-mute);margin-top:2px;}
   .typechip.active{background:var(--accent);border-color:var(--accent);}
   .typechip.active .tname,.typechip.active .tsub{color:var(--accent-ink);}
-  .weekbar{display:flex;gap:8px;margin-bottom:1rem;}
-  .weekchip{border:1px solid var(--line);background:var(--card);border-radius:99px;padding:6px 14px;
-    font-size:12.5px;cursor:pointer;color:var(--ink-soft);}
-  .weekchip.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-ink);font-weight:600;}
   .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:1.1rem 1.1rem 1.2rem;}
   .card + .card{margin-top:.9rem;}
   .badge{display:inline-block;font-size:11px;font-weight:600;padding:3px 9px;border-radius:99px;
@@ -87,10 +81,8 @@
   .progressbar-fill{height:100%;background:var(--accent);width:0%;transition:width .3s;}
   .runner-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:1rem 1.4rem;}
   .runner-phase{font-size:12px;font-weight:600;color:var(--ink-mute);text-transform:uppercase;letter-spacing:.06em;}
-  .runner-kind{font-size:14px;font-weight:600;margin-top:6px;padding:4px 12px;border-radius:99px;display:inline-block;}
-  .runner-kind.work{background:var(--accent-soft);color:var(--accent-ink);}
-  .runner-kind.rest{background:var(--rest-soft);color:var(--rest);}
   .runner-name{font-size:23px;font-weight:600;margin:.7rem 0 .1rem;line-height:1.25;}
+  .runner-name.rest{color:var(--rest);}
   .runner-set{font-size:13.5px;color:var(--ink-soft);margin-bottom:1rem;}
   .runner-time{font-size:76px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1;margin:.4rem 0;}
   .runner-side{font-size:14px;font-weight:600;color:var(--warn);min-height:20px;margin-bottom:.2rem;}
@@ -113,15 +105,11 @@
 <body>
 <div class="wrap">
   <header>
-    <div>
-      <h1>Programa de core · L5-S1</h1>
-      <p>Estabilidad o anti-rotación · en casa · sin material</p>
-    </div>
     <label class="sound-toggle"><input type="checkbox" id="soundToggle" checked> Sonido</label>
   </header>
 
+  <div class="typebar" id="equipBar"></div>
   <div class="typebar" id="typeBar"></div>
-  <div class="weekbar" id="weekBar"></div>
 
   <div id="sessionCard"></div>
 
@@ -164,7 +152,12 @@ var POSES = {
   side_plank: '<circle cx="128" cy="33" r="8"/><path d="M122,38 L20,70"/><path d="M100,48 L100,84"/><path d="M122,38 L138,20"/><line class="floor" x1="10" y1="86" x2="150" y2="86"/>',
   standing_pallof: '<circle cx="80" cy="20" r="9"/><path d="M80,29 L80,65"/><path d="M80,65 L68,92"/><path d="M80,65 L92,92"/><path d="M80,38 L115,42"/><circle cx="119" cy="42" r="5"/><line class="floor" x1="10" y1="93" x2="150" y2="93"/>',
   childs_pose: '<circle cx="50" cy="82" r="8"/><path d="M58,78 L100,72"/><path d="M100,72 L105,84"/><path d="M70,76 L30,80"/><line class="floor" x1="10" y1="87" x2="150" y2="87"/>',
-  half_kneeling: '<circle cx="75" cy="28" r="8"/><path d="M78,35 L85,60"/><path d="M85,60 L100,86"/><path d="M85,60 L55,75"/><path d="M55,75 L50,86"/><line class="floor" x1="10" y1="88" x2="150" y2="88"/>'
+  half_kneeling: '<circle cx="75" cy="28" r="8"/><path d="M78,35 L85,60"/><path d="M85,60 L100,86"/><path d="M85,60 L55,75"/><path d="M55,75 L50,86"/><line class="floor" x1="10" y1="88" x2="150" y2="88"/>',
+  standing_row: '<circle cx="80" cy="20" r="9"/><path d="M80,29 L80,65"/><path d="M80,65 L68,92"/><path d="M80,65 L92,92"/><path d="M80,40 L55,46"/><path d="M55,46 L32,40"/><circle cx="27" cy="40" r="4"/><line class="floor" x1="10" y1="93" x2="150" y2="93"/>',
+  standing_chop: '<circle cx="78" cy="20" r="9"/><path d="M78,29 L78,65"/><path d="M78,65 L66,92"/><path d="M78,65 L90,92"/><path d="M78,36 L113,16"/><circle cx="118" cy="13" r="4"/><line class="floor" x1="10" y1="93" x2="150" y2="93"/>',
+  standing_lateral_flex: '<circle cx="88" cy="21" r="9"/><path d="M85,30 L76,65"/><path d="M76,65 L64,92"/><path d="M76,65 L88,92"/><path d="M84,33 L110,15"/><circle cx="114" cy="13" r="4"/><line class="floor" x1="10" y1="93" x2="150" y2="93"/>',
+  band_walk: '<circle cx="80" cy="20" r="9"/><path d="M80,29 L80,55"/><path d="M80,44 L58,58"/><path d="M80,44 L102,58"/><path d="M80,55 L54,90"/><path d="M80,55 L109,90"/><line x1="54" y1="90" x2="109" y2="90" stroke="currentColor" stroke-width="2" opacity="0.4" stroke-dasharray="4 3"/><line class="floor" x1="10" y1="93" x2="150" y2="93"/>',
+  quad_hydrant: '<circle cx="140" cy="38" r="9"/><path d="M132,44 L52,55"/><path d="M118,47 L118,86"/><path d="M62,53 L62,86"/><path d="M118,58 L146,44"/><line class="floor" x1="10" y1="88" x2="150" y2="88"/>'
 };
 
 function svgFor(poseKey){
@@ -174,7 +167,7 @@ function svgFor(poseKey){
 }
 
 var EXLIB = {
-  catcamel:{name:'Cat-camel (gato-camello)', pose:'quad_neutral', steps:[
+  catcamel:{name:'Cat-camel', pose:'quad_neutral', steps:[
     'Colócate a cuatro apoyos, manos bajo los hombros y rodillas bajo las caderas.',
     'Al inspirar, deja caer el ombligo y sube la mirada (posición vaca).',
     'Al espirar, redondea la espalda empujando el suelo con las manos y mete la barbilla (posición gato).',
@@ -204,7 +197,7 @@ var EXLIB = {
     'Baja una pierna lentamente hasta casi tocar el suelo sin mover la zona lumbar.',
     'Vuelve al centro y repite con la otra pierna.'
   ], brief:'Baja una pierna despacio sin mover la zona lumbar.', cue:'Versión más simple para reforzar el patrón sin usar los brazos.'},
-  birddog:{name:'Bird-dog (perro de caza)', pose:'quad_birddog', unilateral:true, steps:[
+  birddog:{name:'Bird-dog', pose:'quad_birddog', unilateral:true, steps:[
     'A cuatro apoyos, manos bajo los hombros y rodillas bajo las caderas.',
     'Activa el bracing y mantén la espalda plana.',
     'Extiende el brazo derecho hacia delante y la pierna izquierda hacia atrás a la vez.',
@@ -245,7 +238,7 @@ var EXLIB = {
     'Lleva una mano al hombro contrario sin que la cadera se mueva ni rote.',
     'Vuelve a apoyar y repite con la otra mano.'
   ], brief:'En plancha, toca el hombro contrario sin mover la cadera.', cue:'La cadera se queda quieta; el movimiento es solo del brazo.'},
-  bear_hold:{name:'Bear hold (posición de oso)', pose:'quad_bear', steps:[
+  bear_hold:{name:'Bear hold', pose:'quad_bear', steps:[
     'A cuatro apoyos, manos bajo los hombros y rodillas bajo las caderas.',
     'Activa el bracing y despega las rodillas 2-3 cm del suelo.',
     'Mantén la espalda plana, sin redondear ni arquear.',
@@ -263,7 +256,7 @@ var EXLIB = {
     'Vuelve a extender el brazo hacia arriba con control.',
     'Mantén la cadera elevada durante todo el movimiento y luego cambia de lado.'
   ], brief:'En plancha lateral, pasa el brazo por debajo del cuerpo girando el tronco.', cue:'El giro es lento y controlado, sin perder el apoyo.'},
-  pallof:{name:'Pallof isométrico (opcional)', pose:'standing_pallof', unilateral:true, steps:[
+  pallof:{name:'Pallof isométrico', pose:'standing_pallof', unilateral:true, steps:[
     'De pie, sujeta una mochila con algo de peso contra el pecho con ambas manos.',
     'Activa el bracing.',
     'Extiende los brazos hacia delante manteniendo el tronco totalmente quieto, sin rotar.',
@@ -286,7 +279,67 @@ var EXLIB = {
     'Cierra los ojos si te resulta cómodo.',
     'Respira lento y profundo por la nariz, dejando que el abdomen se expanda.',
     'Espira despacio soltando toda la tensión.'
-  ], brief:'Respira lento y profundo, soltando la tensión.', cue:'Cierra la sesión bajando pulsaciones.'}
+  ], brief:'Respira lento y profundo, soltando la tensión.', cue:'Cierra la sesión bajando pulsaciones.'},
+  bridge_band:{name:'Puente de glúteo con miniband', pose:'supine_bridge', steps:[
+    'Coloca una miniband justo encima de las rodillas y túmbate boca arriba, rodillas dobladas.',
+    'Empuja las rodillas hacia fuera contra la goma para activar el glúteo antes de moverte.',
+    'Sube las caderas apretando el glúteo, sin arquear la zona lumbar ni dejar que las rodillas se cierren.',
+    'Baja con control y repite.'
+  ], brief:'Sube la cadera empujando las rodillas contra la goma, sin arquear la lumbar.', cue:'La goma no debe vencer: las rodillas se mantienen separadas todo el rato.'},
+  deadbug_band:{name:'Dead bug con banda', pose:'supine_deadbug', unilateral:true, steps:[
+    'Túmbate boca arriba, sujeta la banda con ambas manos y estírala hacia el techo con los brazos.',
+    'Caderas y rodillas a 90°. Activa el bracing.',
+    'Baja lentamente el brazo y la pierna contraria sin perder la tensión de la banda ni despegar la lumbar del suelo.',
+    'Vuelve al centro con control y repite con el lado contrario.'
+  ], brief:'Con la banda tensa entre las manos, baja brazo y pierna contrarios sin mover la lumbar.', cue:'La tensión de la banda se mantiene constante en todo momento.'},
+  birddog_band:{name:'Bird-dog con miniband', pose:'quad_birddog', unilateral:true, steps:[
+    'Coloca una miniband justo encima de las rodillas, a cuatro apoyos.',
+    'Activa el bracing y mantén la espalda plana, empujando ligeramente contra la goma.',
+    'Extiende el brazo derecho hacia delante y la pierna izquierda hacia atrás a la vez.',
+    'Mantén unos segundos sin rotar cadera ni hombros, vuelve al centro y cambia de lado.'
+  ], brief:'Extiende brazo y pierna contrarios manteniendo tensión en la goma de las rodillas.', cue:'La goma añade un extra de estabilidad de cadera: no dejes que te desequilibre.'},
+  plank_band:{name:'Plancha frontal con miniband', pose:'plank', steps:[
+    'Coloca una miniband alrededor de los tobillos y apóyate en antebrazos y puntas de los pies.',
+    'Activa el bracing y separa ligeramente los pies contra la resistencia de la goma.',
+    'Forma una línea recta desde la cabeza hasta los talones.',
+    'Mantén la posición sin dejar caer ni subir la cadera.'
+  ], brief:'En plancha, separa los pies contra la goma manteniendo el cuerpo en línea recta.', cue:'Si la lumbar se hunde, sube la cadera un poco hasta alinear.'},
+  band_walk:{name:'Paso lateral con miniband', pose:'band_walk', steps:[
+    'Coloca una miniband alrededor de los tobillos o justo encima de las rodillas.',
+    'Ponte de pie con las rodillas ligeramente flexionadas y el tronco firme.',
+    'Da pasos laterales cortos manteniendo tensión constante en la goma, sin que las rodillas se junten.',
+    'Recorre unos pasos hacia un lado y luego hacia el otro.'
+  ], brief:'Da pasos laterales contra la goma sin que las rodillas se junten.', cue:'El tronco se mantiene quieto; el trabajo es de cadera, no de espalda.'},
+  pallof_band:{name:'Pallof press con goma', pose:'standing_pallof', unilateral:true, steps:[
+    'Ancla la goma a un punto fijo a la altura del pecho y colócate de perfil, sujetándola con ambas manos.',
+    'Activa el bracing.',
+    'Extiende los brazos hacia delante manteniendo el tronco totalmente quieto, sin rotar hacia la goma.',
+    'Vuelve a acercar las manos al pecho con control, luego cambia el lado desde el que resistes.'
+  ], brief:'Extiende los brazos hacia delante sin dejar que el tronco rote hacia la goma.', cue:'El objetivo es que el tronco NO rote al extender los brazos.'},
+  row_antirot_band:{name:'Remo anti-rotación con goma', pose:'standing_row', unilateral:true, steps:[
+    'Ancla la goma a un punto fijo a la altura del pecho y colócate de frente, sujetándola con una mano.',
+    'Activa el bracing y mantén las caderas y hombros mirando al frente.',
+    'Tira de la goma hacia las costillas sin que el tronco rote hacia el lado que tira.',
+    'Vuelve a extender el brazo con control y repite antes de cambiar de lado.'
+  ], brief:'Tira de la goma hacia las costillas sin que el tronco rote.', cue:'Si el hombro se va hacia atrás, es que el tronco está rotando: para el rango antes.'},
+  chop_band:{name:'Leñador con goma', pose:'standing_chop', unilateral:true, steps:[
+    'Ancla la goma en alto a un punto fijo y colócate de perfil, sujetándola con ambas manos.',
+    'Activa el bracing.',
+    'Lleva la goma en diagonal desde arriba hacia abajo por delante del cuerpo, con los brazos casi extendidos.',
+    'Vuelve arriba con control sin dejar que el tronco rote ni se incline, luego cambia de lado.'
+  ], brief:'Lleva la goma en diagonal delante del cuerpo sin rotar el tronco.', cue:'El movimiento lo hacen los brazos y el core frena la rotación, no al revés.'},
+  lateral_flex_band:{name:'Anti-flexión lateral con goma', pose:'standing_lateral_flex', unilateral:true, steps:[
+    'Ancla la goma a un punto bajo y colócate de pie con el lado del anclaje hacia la goma.',
+    'Sujeta la goma con ambas manos a la altura del pecho.',
+    'Activa el bracing e impide que la goma te incline hacia ese lado, manteniendo el tronco vertical.',
+    'Sostén unos segundos y luego cambia de lado.'
+  ], brief:'Impide que la goma incline el tronco hacia un lado; mantente vertical.', cue:'Si notas que te inclinas, reduce la tensión de la goma.'},
+  fire_hydrant_band:{name:'Hidrante con miniband', pose:'quad_hydrant', unilateral:true, steps:[
+    'Coloca una miniband justo encima de las rodillas, a cuatro apoyos.',
+    'Activa el bracing y mantén la espalda plana.',
+    'Eleva una rodilla hacia el lateral sin rotar la cadera ni el tronco.',
+    'Baja con control y repite antes de cambiar de lado.'
+  ], brief:'Eleva la rodilla hacia el lateral sin rotar la cadera.', cue:'El movimiento es solo de cadera; la espalda no se mueve.'}
 };
 
 var WARM = [
@@ -301,43 +354,45 @@ var COOLDOWN = [
   {key:'breathing_cooldown', sets:1, work:45, rest:0}
 ];
 
-var CORE_A_W1 = [
+var CORE_A = [
   {key:'deadbug', sets:3, work:45, rest:25},
   {key:'birddog', sets:3, work:45, rest:25},
   {key:'plank_front', sets:3, work:25, rest:30},
   {key:'glute_bridge_bipodal', sets:3, work:30, rest:20},
   {key:'side_plank_knee', sets:2, work:35, rest:25}
 ];
-var CORE_A_W2 = [
-  {key:'deadbug', sets:3, work:50, rest:20},
-  {key:'birddog', sets:3, work:55, rest:20},
-  {key:'plank_front', sets:3, work:40, rest:30},
-  {key:'glute_bridge_unilateral', sets:3, work:40, rest:25},
-  {key:'side_plank_foot', sets:3, work:55, rest:25}
-];
-var CORE_B_W1 = [
+var CORE_B = [
   {key:'plank_shoulder_tap', sets:3, work:40, rest:25},
   {key:'bear_hold', sets:3, work:20, rest:25},
   {key:'bridge_march', sets:3, work:40, rest:25},
   {key:'deadbug_crossed', sets:2, work:40, rest:20},
   {key:'side_plank_thread', sets:2, work:35, rest:25}
 ];
-var CORE_B_W2 = [
-  {key:'plank_shoulder_tap', sets:3, work:50, rest:20},
-  {key:'bear_hold', sets:3, work:30, rest:25},
-  {key:'bridge_march', sets:3, work:50, rest:20},
-  {key:'pallof', sets:3, work:30, rest:25},
-  {key:'side_plank_thread', sets:3, work:40, rest:25}
+var BAND_A = [
+  {key:'bridge_band', sets:3, work:30, rest:20},
+  {key:'deadbug_band', sets:3, work:40, rest:25},
+  {key:'birddog_band', sets:3, work:40, rest:25},
+  {key:'plank_band', sets:3, work:25, rest:30},
+  {key:'band_walk', sets:2, work:30, rest:20}
+];
+var BAND_B = [
+  {key:'pallof_band', sets:3, work:35, rest:25},
+  {key:'row_antirot_band', sets:3, work:35, rest:25},
+  {key:'chop_band', sets:3, work:30, rest:25},
+  {key:'lateral_flex_band', sets:2, work:30, rest:25},
+  {key:'fire_hydrant_band', sets:3, work:25, rest:20}
 ];
 
 var SESSION_TYPES = {
-  coreA:{title:'Core A · Estabilidad', short:'Estabilidad', tag:'Core A', desc:'Dead bug, bird-dog, plancha frontal y puente de glúteo.'},
-  coreB:{title:'Core B · Anti-rotación', short:'Anti-rotación', tag:'Core B', desc:'Plancha con toques de hombro, bear hold, marcha de puente y plancha con giro.'}
+  coreA:{equip:'none', kind:'A', title:'Estabilidad · Sin material', tag:'Core A', desc:'Dead bug, bird-dog, plancha frontal, puente de glúteo y plancha lateral.'},
+  coreB:{equip:'none', kind:'B', title:'Anti-rotación · Sin material', tag:'Core B', desc:'Plancha con toques de hombro, bear hold, marcha de puente y plancha con giro.'},
+  bandA:{equip:'band', kind:'A', title:'Estabilidad · Con gomas', tag:'Banda A', desc:'Puente, dead bug, bird-dog y plancha con miniband, más paso lateral.'},
+  bandB:{equip:'band', kind:'B', title:'Anti-rotación · Con gomas', tag:'Banda B', desc:'Pallof press, remo anti-rotación, leñador y anti-flexión lateral con goma.'}
 };
 
-function sessionFor(type, week){
-  if(type==='coreA') return week===1 ? CORE_A_W1 : CORE_A_W2;
-  return week===1 ? CORE_B_W1 : CORE_B_W2;
+function sessionArray(equip, kind){
+  var table = { none:{A:CORE_A, B:CORE_B}, band:{A:BAND_A, B:BAND_B} };
+  return table[equip][kind];
 }
 
 function fmtTime(sec){
@@ -354,55 +409,62 @@ function estimateSeconds(session){
   return total;
 }
 
-var selectedType = 'coreA';
-var selectedWeek = 1;
+var selectedEquip = 'none';
+var selectedKind = 'A';
 try{
-  var storedType = localStorage.getItem('core_selected_type');
-  if(storedType==='coreA' || storedType==='coreB') selectedType = storedType;
-  var storedWeek = localStorage.getItem('core_selected_week');
-  if(storedWeek==='1' || storedWeek==='2') selectedWeek = Number(storedWeek);
+  var storedEquip = localStorage.getItem('core_selected_equip');
+  if(storedEquip==='none' || storedEquip==='band') selectedEquip = storedEquip;
+  var storedKind = localStorage.getItem('core_selected_kind');
+  if(storedKind==='A' || storedKind==='B') selectedKind = storedKind;
 }catch(e){}
 
 function saveSelection(){
   try{
-    localStorage.setItem('core_selected_type', selectedType);
-    localStorage.setItem('core_selected_week', String(selectedWeek));
+    localStorage.setItem('core_selected_equip', selectedEquip);
+    localStorage.setItem('core_selected_kind', selectedKind);
   }catch(e){}
 }
 
-function renderTypeBar(){
-  var el = document.getElementById('typeBar');
-  el.innerHTML = Object.keys(SESSION_TYPES).map(function(key){
-    var info = SESSION_TYPES[key];
-    return '<button class="typechip'+(key===selectedType?' active':'')+'" data-type="'+key+'">'+
-      '<span class="tname">'+info.short+'</span><span class="tsub">'+info.tag+'</span></button>';
-  }).join('');
-  Array.prototype.forEach.call(el.querySelectorAll('[data-type]'), function(btn){
+function currentSessionKey(){ return (selectedEquip==='band' ? 'band' : 'core') + selectedKind; }
+function currentSessionInfo(){ return SESSION_TYPES[currentSessionKey()]; }
+
+function renderEquipBar(){
+  var el = document.getElementById('equipBar');
+  el.innerHTML =
+    '<button class="typechip'+(selectedEquip==='none'?' active':'')+'" data-equip="none">'+
+      '<span class="tname">Sin material</span><span class="tsub">En casa</span></button>'+
+    '<button class="typechip'+(selectedEquip==='band'?' active':'')+'" data-equip="band">'+
+      '<span class="tname">Con gomas</span><span class="tsub">Miniband / banda</span></button>';
+  Array.prototype.forEach.call(el.querySelectorAll('[data-equip]'), function(btn){
     btn.addEventListener('click', function(){
-      selectedType = btn.getAttribute('data-type');
+      selectedEquip = btn.getAttribute('data-equip');
       saveSelection();
-      renderTypeBar(); renderWeekBar(); renderSessionCard();
+      renderEquipBar(); renderTypeBar(); renderSessionCard();
     });
   });
 }
 
-function renderWeekBar(){
-  var el = document.getElementById('weekBar');
-  el.innerHTML = [1,2].map(function(w){
-    return '<button class="weekchip'+(w===selectedWeek?' active':'')+'" data-week="'+w+'">Semana '+w+'</button>';
-  }).join('');
-  Array.prototype.forEach.call(el.querySelectorAll('[data-week]'), function(btn){
+function renderTypeBar(){
+  var el = document.getElementById('typeBar');
+  var infoA = SESSION_TYPES[(selectedEquip==='band'?'band':'core')+'A'];
+  var infoB = SESSION_TYPES[(selectedEquip==='band'?'band':'core')+'B'];
+  el.innerHTML =
+    '<button class="typechip'+(selectedKind==='A'?' active':'')+'" data-kind="A">'+
+      '<span class="tname">Estabilidad</span><span class="tsub">'+infoA.tag+'</span></button>'+
+    '<button class="typechip'+(selectedKind==='B'?' active':'')+'" data-kind="B">'+
+      '<span class="tname">Anti-rotación</span><span class="tsub">'+infoB.tag+'</span></button>';
+  Array.prototype.forEach.call(el.querySelectorAll('[data-kind]'), function(btn){
     btn.addEventListener('click', function(){
-      selectedWeek = Number(btn.getAttribute('data-week'));
+      selectedKind = btn.getAttribute('data-kind');
       saveSelection();
-      renderWeekBar(); renderSessionCard();
+      renderTypeBar(); renderSessionCard();
     });
   });
 }
 
 function renderSessionCard(){
-  var info = SESSION_TYPES[selectedType];
-  var session = sessionFor(selectedType, selectedWeek);
+  var info = currentSessionInfo();
+  var session = sessionArray(selectedEquip, selectedKind);
   var el = document.getElementById('sessionCard');
   var rows = WARM.map(function(ex){ return exRow(ex,'Calentamiento'); }).join('') +
              session.map(function(ex){ return exRow(ex,'Principal'); }).join('') +
@@ -410,7 +472,7 @@ function renderSessionCard(){
 
   el.innerHTML =
     '<div class="card">'+
-      '<span class="badge">Semana '+selectedWeek+'</span>'+
+      '<span class="badge">'+info.tag+'</span>'+
       '<div class="daytitle">'+info.title+'</div>'+
       '<p class="daydesc">'+info.desc+'</p>'+
       '<ul class="exlist">'+rows+'</ul>'+
@@ -491,12 +553,27 @@ function beepSwitch(){ beep(740,120,0.15); setTimeout(function(){ beep(740,120,0
 function beepFinish(){ beep(660,140,0.18); setTimeout(function(){ beep(880,140,0.18); },150); setTimeout(function(){ beep(1174,220,0.2); },300); }
 function vibrate(pattern){ if(navigator.vibrate){ try{ navigator.vibrate(pattern); }catch(e){} } }
 
+var preferredVoice = null;
+function pickVoice(){
+  try{
+    if(!window.speechSynthesis) return;
+    var voices = window.speechSynthesis.getVoices() || [];
+    var esVoices = voices.filter(function(v){ return /^es/i.test(v.lang); });
+    var malePattern = /jorge|pablo|diego|carlos|miguel|enrique|male|hombre|var[oó]n/i;
+    var male = esVoices.filter(function(v){ return malePattern.test(v.name); });
+    preferredVoice = male[0] || esVoices[0] || null;
+  }catch(e){}
+}
+pickVoice();
+try{ if(window.speechSynthesis) window.speechSynthesis.onvoiceschanged = pickVoice; }catch(e){}
+
 function speak(text){
   if(!soundOn) return;
   try{
     if(!window.speechSynthesis) return;
     var u = new SpeechSynthesisUtterance(text);
-    u.lang = 'es-ES';
+    u.lang = preferredVoice ? preferredVoice.lang : 'es-ES';
+    if(preferredVoice) u.voice = preferredVoice;
     u.rate = 1.05;
     u.volume = 1;
     window.speechSynthesis.speak(u);
@@ -575,17 +652,16 @@ function renderRunnerStep(justEntered){
   var step = currentStep();
   var lib = EXLIB[step.key];
   var body = document.getElementById('runnerBody');
-  var kindLabel = step.kind==='work' ? 'Trabajo' : 'Descanso';
-  var nextLabel = step.kind==='rest' ? (EXLIB[runnerState.queue[runnerState.index+1] ? runnerState.queue[runnerState.index+1].key : step.key].name) : nextWorkLabel(runnerState.queue, runnerState.index);
+  var isRest = step.kind==='rest';
+  var nextLabel = isRest ? (EXLIB[runnerState.queue[runnerState.index+1] ? runnerState.queue[runnerState.index+1].key : step.key].name) : nextWorkLabel(runnerState.queue, runnerState.index);
 
   body.innerHTML =
     '<div class="runner-phase">'+step.phase+'</div>'+
-    '<div class="runner-kind '+step.kind+'">'+kindLabel+'</div>'+
-    '<div class="runner-name" id="runnerName">'+lib.name+'</div>'+
+    '<div class="runner-name'+(isRest?' rest':'')+'" id="runnerName">'+(isRest ? 'Descanso' : lib.name)+'</div>'+
     '<div class="runner-set">Serie '+step.setIndex+' de '+step.totalSets+(step.unilateral && step.kind==='work' ? ' · ambos lados' : '')+'</div>'+
     '<div class="runner-time" id="runnerTime">'+fmtTime(runnerState.remainingMs/1000)+'</div>'+
     '<div class="runner-side" id="runnerSide"></div>'+
-    (step.kind==='work' ? '<div class="runner-desc">'+(lib.brief||lib.cue)+'</div>' : '')+
+    (!isRest ? '<div class="runner-desc">'+(lib.brief||lib.cue)+'</div>' : '')+
     (nextLabel ? '<div class="runner-next">Siguiente: '+nextLabel+'</div>' : '<div class="runner-next">Última serie</div>')+
     '<button class="runner-info" id="runnerInfoBtn">Ver ejercicio</button>';
 
@@ -594,13 +670,13 @@ function renderRunnerStep(justEntered){
   updateProgress();
   runnerState.announcedMarks = {};
   if(justEntered){
-    if(step.kind==='work'){
+    if(!isRest){
       beepWorkStart(); vibrate([120]);
       if(step.setIndex===1){ speak(lib.name+'. '+(lib.brief||lib.cue)); }
       else { speak('Serie '+step.setIndex+'. '+lib.name+'.'); }
     } else {
       beepRestStart(); vibrate([60]);
-      speak('Descanso.'+(nextLabel ? ' Después, '+nextLabel+'.' : ''));
+      speak('Descanso.');
     }
   }
   runnerState.halfFired = false;
@@ -743,8 +819,8 @@ function exitRunner(){
   document.body.style.overflow='';
 }
 
+renderEquipBar();
 renderTypeBar();
-renderWeekBar();
 renderSessionCard();
 renderLibrary();
 
