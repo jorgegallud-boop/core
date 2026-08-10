@@ -39,6 +39,12 @@
   .typechip .tsub{display:block;font-size:11.5px;color:var(--ink-mute);margin-top:2px;}
   .typechip.active{background:var(--accent);border-color:var(--accent);}
   .typechip.active .tname,.typechip.active .tsub{color:var(--accent-ink);}
+  .musiccard{display:flex;align-items:center;background:var(--card);border:1px solid var(--line);
+    border-radius:12px;padding:9px 12px;margin-bottom:.8rem;}
+  .musicrow{display:flex;align-items:center;gap:10px;width:100%;}
+  .musiclabel{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink);font-size:13px;}
+  .musicrow input[type=range]{width:86px;accent-color:var(--accent);}
+  .musicx{border:none;background:transparent;color:var(--ink-mute);font-size:19px;cursor:pointer;line-height:1;padding:0 2px;}
   .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:1.1rem 1.1rem 1.2rem;}
   .card + .card{margin-top:.9rem;}
   .badge{display:inline-block;font-size:11px;font-weight:600;padding:3px 9px;border-radius:99px;
@@ -110,6 +116,19 @@
 
   <div class="typebar" id="equipBar"></div>
   <div class="typebar" id="typeBar"></div>
+
+  <div class="musiccard" id="musicCard">
+    <div class="musicrow" id="musicPickRow">
+      <span class="musiclabel">🎵 Música de fondo (opcional)</span>
+      <button class="btn btn-small btn-secondary" id="musicPickBtn" type="button">Elegir audio</button>
+    </div>
+    <div class="musicrow" id="musicPlayingRow" style="display:none">
+      <span class="musiclabel" id="musicName"></span>
+      <input type="range" id="musicVolume" min="0" max="100" value="55" aria-label="Volumen de la música">
+      <button class="musicx" id="musicRemove" aria-label="Quitar música" type="button">&times;</button>
+    </div>
+    <input type="file" id="musicFile" accept="audio/*" style="display:none">
+  </div>
 
   <div id="sessionCard"></div>
 
@@ -343,44 +362,44 @@ var EXLIB = {
 };
 
 var WARM = [
-  {key:'catcamel', sets:2, work:30, rest:10},
-  {key:'bridge_basic', sets:2, work:25, rest:10},
-  {key:'breathing_bracing', sets:2, work:40, rest:10}
+  {key:'catcamel', sets:2, work:30, rest:0},
+  {key:'bridge_basic', sets:2, work:25, rest:0},
+  {key:'breathing_bracing', sets:2, work:40, rest:0}
 ];
 
 var COOLDOWN = [
-  {key:'childs_pose', sets:1, work:30, rest:5},
-  {key:'hip_flexor_stretch', sets:2, work:30, rest:5},
+  {key:'childs_pose', sets:1, work:30, rest:0},
+  {key:'hip_flexor_stretch', sets:2, work:30, rest:0},
   {key:'breathing_cooldown', sets:1, work:45, rest:0}
 ];
 
 var CORE_A = [
-  {key:'deadbug', sets:3, work:45, rest:25},
-  {key:'birddog', sets:3, work:45, rest:25},
-  {key:'plank_front', sets:3, work:25, rest:30},
-  {key:'glute_bridge_bipodal', sets:3, work:30, rest:20},
-  {key:'side_plank_knee', sets:2, work:35, rest:25}
+  {key:'deadbug', sets:3, work:45, rest:0},
+  {key:'birddog', sets:3, work:45, rest:0},
+  {key:'plank_front', sets:3, work:25, rest:0},
+  {key:'glute_bridge_bipodal', sets:3, work:30, rest:0},
+  {key:'side_plank_knee', sets:2, work:35, rest:0}
 ];
 var CORE_B = [
-  {key:'plank_shoulder_tap', sets:3, work:40, rest:25},
-  {key:'bear_hold', sets:3, work:20, rest:25},
-  {key:'bridge_march', sets:3, work:40, rest:25},
-  {key:'deadbug_crossed', sets:2, work:40, rest:20},
-  {key:'side_plank_thread', sets:2, work:35, rest:25}
+  {key:'plank_shoulder_tap', sets:3, work:40, rest:0},
+  {key:'bear_hold', sets:3, work:20, rest:0},
+  {key:'bridge_march', sets:3, work:40, rest:0},
+  {key:'deadbug_crossed', sets:2, work:40, rest:0},
+  {key:'side_plank_thread', sets:2, work:35, rest:0}
 ];
 var BAND_A = [
-  {key:'bridge_band', sets:3, work:30, rest:20},
-  {key:'deadbug_band', sets:3, work:40, rest:25},
-  {key:'birddog_band', sets:3, work:40, rest:25},
-  {key:'plank_band', sets:3, work:25, rest:30},
-  {key:'band_walk', sets:2, work:30, rest:20}
+  {key:'bridge_band', sets:3, work:30, rest:0},
+  {key:'deadbug_band', sets:3, work:40, rest:0},
+  {key:'birddog_band', sets:3, work:40, rest:0},
+  {key:'plank_band', sets:3, work:25, rest:0},
+  {key:'band_walk', sets:2, work:30, rest:0}
 ];
 var BAND_B = [
-  {key:'pallof_band', sets:3, work:35, rest:25},
-  {key:'row_antirot_band', sets:3, work:35, rest:25},
-  {key:'chop_band', sets:3, work:30, rest:25},
-  {key:'lateral_flex_band', sets:2, work:30, rest:25},
-  {key:'fire_hydrant_band', sets:3, work:25, rest:20}
+  {key:'pallof_band', sets:3, work:35, rest:0},
+  {key:'row_antirot_band', sets:3, work:35, rest:0},
+  {key:'chop_band', sets:3, work:30, rest:0},
+  {key:'lateral_flex_band', sets:2, work:30, rest:0},
+  {key:'fire_hydrant_band', sets:3, work:25, rest:0}
 ];
 
 var SESSION_TYPES = {
@@ -583,6 +602,64 @@ function stopSpeech(){
   try{ if(window.speechSynthesis) window.speechSynthesis.cancel(); }catch(e){}
 }
 
+var musicAudio = null;
+var musicObjectUrl = null;
+
+function setupMusicControls(){
+  var fileInput = document.getElementById('musicFile');
+  var pickBtn = document.getElementById('musicPickBtn');
+  var pickRow = document.getElementById('musicPickRow');
+  var playingRow = document.getElementById('musicPlayingRow');
+  var nameEl = document.getElementById('musicName');
+  var volumeEl = document.getElementById('musicVolume');
+  var removeBtn = document.getElementById('musicRemove');
+
+  pickBtn.addEventListener('click', function(){ fileInput.click(); });
+
+  fileInput.addEventListener('change', function(){
+    var file = fileInput.files && fileInput.files[0];
+    if(!file) return;
+    if(musicAudio){ musicAudio.pause(); musicAudio = null; }
+    if(musicObjectUrl){ URL.revokeObjectURL(musicObjectUrl); }
+    musicObjectUrl = URL.createObjectURL(file);
+    musicAudio = new Audio(musicObjectUrl);
+    musicAudio.loop = true;
+    musicAudio.volume = Number(volumeEl.value)/100;
+    nameEl.textContent = file.name;
+    pickRow.style.display = 'none';
+    playingRow.style.display = 'flex';
+  });
+
+  volumeEl.addEventListener('input', function(){
+    if(musicAudio) musicAudio.volume = Number(volumeEl.value)/100;
+  });
+
+  removeBtn.addEventListener('click', function(){
+    if(musicAudio){ musicAudio.pause(); musicAudio = null; }
+    if(musicObjectUrl){ URL.revokeObjectURL(musicObjectUrl); musicObjectUrl = null; }
+    fileInput.value = '';
+    pickRow.style.display = 'flex';
+    playingRow.style.display = 'none';
+  });
+}
+
+function startMusic(){
+  if(!musicAudio) return;
+  try{ musicAudio.currentTime = 0; musicAudio.play().catch(function(){}); }catch(e){}
+}
+function resumeMusic(){
+  if(!musicAudio) return;
+  try{ musicAudio.play().catch(function(){}); }catch(e){}
+}
+function pauseMusic(){
+  if(!musicAudio) return;
+  try{ musicAudio.pause(); }catch(e){}
+}
+function stopMusic(){
+  if(!musicAudio) return;
+  try{ musicAudio.pause(); musicAudio.currentTime = 0; }catch(e){}
+}
+
 var runnerState = null;
 
 function buildQueue(session){
@@ -621,11 +698,8 @@ function startWorkout(session, title){
 function startLightSession(){
   var queue = [
     {phase:'Ligero', key:'breathing_bracing', setIndex:1, totalSets:2, kind:'work', duration:30, unilateral:false},
-    {phase:'Ligero', key:'breathing_bracing', setIndex:1, totalSets:2, kind:'rest', duration:10},
     {phase:'Ligero', key:'breathing_bracing', setIndex:2, totalSets:2, kind:'work', duration:30, unilateral:false},
-    {phase:'Ligero', key:'breathing_bracing', setIndex:2, totalSets:2, kind:'rest', duration:10},
     {phase:'Ligero', key:'deadbug', setIndex:1, totalSets:2, kind:'work', duration:35, unilateral:true},
-    {phase:'Ligero', key:'deadbug', setIndex:1, totalSets:2, kind:'rest', duration:15},
     {phase:'Ligero', key:'deadbug', setIndex:2, totalSets:2, kind:'work', duration:35, unilateral:true}
   ];
   launchRunner(queue, 'Sesión ligera');
@@ -641,6 +715,7 @@ function launchRunner(queue, title){
   ensureAudio();
   stopSpeech();
   speak('Empieza '+title+'.');
+  startMusic();
   renderRunnerControls();
   renderRunnerStep(true);
   resumeTimer();
@@ -706,6 +781,7 @@ function resumeTimer(){
   runnerState.running = true;
   runnerState.endTime = Date.now() + runnerState.remainingMs;
   document.getElementById('btnPause').innerHTML = '&#10074;&#10074;';
+  resumeMusic();
   tick();
 }
 
@@ -714,6 +790,7 @@ function pauseTimer(){
   runnerState.remainingMs = Math.max(0, runnerState.endTime - Date.now());
   if(tickHandle) clearTimeout(tickHandle);
   stopSpeech();
+  pauseMusic();
   document.getElementById('btnPause').innerHTML = '&#9654;';
 }
 
@@ -814,6 +891,7 @@ function finishWorkout(){
 function exitRunner(){
   if(tickHandle) clearTimeout(tickHandle);
   stopSpeech();
+  stopMusic();
   runnerState = null;
   document.getElementById('runner').classList.remove('show');
   document.body.style.overflow='';
@@ -823,6 +901,7 @@ renderEquipBar();
 renderTypeBar();
 renderSessionCard();
 renderLibrary();
+setupMusicControls();
 
 })();
 </script>
