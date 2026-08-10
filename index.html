@@ -570,8 +570,15 @@ function pickVoice(){
     var voices = window.speechSynthesis.getVoices() || [];
     var esVoices = voices.filter(function(v){ return /^es/i.test(v.lang); });
     var malePattern = /jorge|pablo|diego|carlos|miguel|enrique|male|hombre|var[oó]n/i;
-    var male = esVoices.filter(function(v){ return malePattern.test(v.name); });
-    preferredVoice = male[0] || esVoices[0] || null;
+    var qualityPattern = /neural|enhanced|natural|premium|online|wavenet/i;
+    var best = null, bestScore = -1;
+    esVoices.forEach(function(v){
+      var score = 0;
+      if(malePattern.test(v.name)) score += 2;
+      if(qualityPattern.test(v.name)) score += 1;
+      if(score > bestScore){ bestScore = score; best = v; }
+    });
+    preferredVoice = best || esVoices[0] || null;
   }catch(e){}
 }
 pickVoice();
@@ -584,7 +591,8 @@ function speak(text){
     var u = new SpeechSynthesisUtterance(text);
     u.lang = preferredVoice ? preferredVoice.lang : 'es-ES';
     if(preferredVoice) u.voice = preferredVoice;
-    u.rate = 1.05;
+    u.rate = 0.97;
+    u.pitch = 0.92;
     u.volume = 1;
     window.speechSynthesis.speak(u);
   }catch(e){}
