@@ -39,12 +39,15 @@
   .typechip .tsub{display:block;font-size:11.5px;color:var(--ink-mute);margin-top:2px;}
   .typechip.active{background:var(--accent);border-color:var(--accent);}
   .typechip.active .tname,.typechip.active .tsub{color:var(--accent-ink);}
-  .musiccard{display:flex;align-items:center;background:var(--card);border:1px solid var(--line);
+  .musiccard{background:var(--card);border:1px solid var(--line);
     border-radius:12px;padding:9px 12px;margin-bottom:.8rem;}
-  .musicrow{display:flex;align-items:center;gap:10px;width:100%;}
-  .musiclabel{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink);font-size:13px;}
+  .musicrow{display:flex;align-items:center;gap:8px;width:100%;flex-wrap:wrap;}
+  .musiclabel{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink);font-size:13px;}
   .musicrow input[type=range]{width:86px;accent-color:var(--accent);}
+  .musicrow input[type=text]{flex:1;min-width:140px;padding:8px 10px;border:1px solid var(--line);
+    border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px;}
   .musicx{border:none;background:transparent;color:var(--ink-mute);font-size:19px;cursor:pointer;line-height:1;padding:0 2px;}
+  .musicnote{font-size:11px;color:var(--ink-mute);margin-top:6px;line-height:1.4;}
   .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:1.1rem 1.1rem 1.2rem;}
   .card + .card{margin-top:.9rem;}
   .badge{display:inline-block;font-size:11px;font-weight:600;padding:3px 9px;border-radius:99px;
@@ -117,18 +120,7 @@
   <div class="typebar" id="equipBar"></div>
   <div class="typebar" id="typeBar"></div>
 
-  <div class="musiccard" id="musicCard">
-    <div class="musicrow" id="musicPickRow">
-      <span class="musiclabel">🎵 Música de fondo (opcional)</span>
-      <button class="btn btn-small btn-secondary" id="musicPickBtn" type="button">Elegir audio</button>
-    </div>
-    <div class="musicrow" id="musicPlayingRow" style="display:none">
-      <span class="musiclabel" id="musicName"></span>
-      <input type="range" id="musicVolume" min="0" max="100" value="55" aria-label="Volumen de la música">
-      <button class="musicx" id="musicRemove" aria-label="Quitar música" type="button">&times;</button>
-    </div>
-    <input type="file" id="musicFile" accept="audio/*" style="display:none">
-  </div>
+  <div class="musiccard" id="musicCard"></div>
 
   <div id="sessionCard"></div>
 
@@ -602,62 +594,155 @@ function stopSpeech(){
   try{ if(window.speechSynthesis) window.speechSynthesis.cancel(); }catch(e){}
 }
 
+var musicMode = 'none'; // 'none' | 'file' | 'spotify_input' | 'spotify'
 var musicAudio = null;
 var musicObjectUrl = null;
+var musicFileName = '';
+var musicVolumeValue = 55;
+var spotifyController = null;
+var spotifyApiLoading = false;
+var spotifyLastLink = '';
+try{ spotifyLastLink = localStorage.getItem('core_spotify_link') || ''; }catch(e){}
 
-function setupMusicControls(){
-  var fileInput = document.getElementById('musicFile');
-  var pickBtn = document.getElementById('musicPickBtn');
-  var pickRow = document.getElementById('musicPickRow');
-  var playingRow = document.getElementById('musicPlayingRow');
-  var nameEl = document.getElementById('musicName');
-  var volumeEl = document.getElementById('musicVolume');
-  var removeBtn = document.getElementById('musicRemove');
+function escapeAttr(s){
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
-  pickBtn.addEventListener('click', function(){ fileInput.click(); });
+function spotifyUriFromInput(text){
+  text = (text||'').trim();
+  var m = text.match(/open\.spotify\.com\/(playlist|album|track)\/([a-zA-Z0-9]+)/);
+  if(m) return 'spotify:'+m[1]+':'+m[2];
+  if(/^spotify:(playlist|album|track):[a-zA-Z0-9]+$/.test(text)) return text;
+  return null;
+}
 
-  fileInput.addEventListener('change', function(){
-    var file = fileInput.files && fileInput.files[0];
-    if(!file) return;
-    if(musicAudio){ musicAudio.pause(); musicAudio = null; }
-    if(musicObjectUrl){ URL.revokeObjectURL(musicObjectUrl); }
-    musicObjectUrl = URL.createObjectURL(file);
-    musicAudio = new Audio(musicObjectUrl);
-    musicAudio.loop = true;
-    musicAudio.volume = Number(volumeEl.value)/100;
-    nameEl.textContent = file.name;
-    pickRow.style.display = 'none';
-    playingRow.style.display = 'flex';
+function loadSpotifyApiScript(cb){
+  if(window.SpotifyIframeApi){ cb(window.SpotifyIframeApi); return; }
+  if(spotifyApiLoading){
+    var check = setInterval(function(){
+      if(window.SpotifyIframeApi){ clearInterval(check); cb(window.SpotifyIframeApi); }
+    }, 150);
+    return;
+  }
+  spotifyApiLoading = true;
+  window.onSpotifyIframeApiReady = function(IFrameAPI){
+    window.SpotifyIframeApi = IFrameAPI;
+    cb(IFrameAPI);
+  };
+  var s = document.createElement('script');
+  s.src = 'https://open.spotify.com/embed/iframe-api/v1';
+  s.async = true;
+  document.head.appendChild(s);
+}
+
+function loadSpotifyEmbed(uri){
+  var wrap = document.getElementById('spotifyEmbedWrap');
+  if(!wrap) return;
+  wrap.innerHTML = '';
+  var el = document.createElement('div');
+  wrap.appendChild(el);
+  loadSpotifyApiScript(function(IFrameAPI){
+    IFrameAPI.createController(el, { uri: uri, width:'100%', height:'80' }, function(controller){
+      spotifyController = controller;
+    });
   });
+}
 
-  volumeEl.addEventListener('input', function(){
-    if(musicAudio) musicAudio.volume = Number(volumeEl.value)/100;
-  });
+function clearMusic(){
+  if(musicAudio){ musicAudio.pause(); musicAudio = null; }
+  if(musicObjectUrl){ URL.revokeObjectURL(musicObjectUrl); musicObjectUrl = null; }
+  if(spotifyController){ try{ spotifyController.pause(); }catch(e){} }
+  spotifyController = null;
+  musicMode = 'none';
+  musicFileName = '';
+  renderMusicCard();
+}
 
-  removeBtn.addEventListener('click', function(){
-    if(musicAudio){ musicAudio.pause(); musicAudio = null; }
-    if(musicObjectUrl){ URL.revokeObjectURL(musicObjectUrl); musicObjectUrl = null; }
-    fileInput.value = '';
-    pickRow.style.display = 'flex';
-    playingRow.style.display = 'none';
-  });
+function renderMusicCard(){
+  var el = document.getElementById('musicCard');
+  if(!el) return;
+
+  if(musicMode==='file'){
+    el.innerHTML =
+      '<div class="musicrow">'+
+        '<span class="musiclabel">🎵 '+escapeAttr(musicFileName)+'</span>'+
+        '<input type="range" id="musicVolume" min="0" max="100" value="'+musicVolumeValue+'" aria-label="Volumen de la música">'+
+        '<button class="musicx" id="musicRemove" type="button" aria-label="Quitar música">&times;</button>'+
+      '</div>';
+    document.getElementById('musicVolume').addEventListener('input', function(e){
+      musicVolumeValue = Number(e.target.value);
+      if(musicAudio) musicAudio.volume = musicVolumeValue/100;
+    });
+    document.getElementById('musicRemove').addEventListener('click', clearMusic);
+
+  } else if(musicMode==='spotify_input'){
+    el.innerHTML =
+      '<div class="musicrow">'+
+        '<input type="text" id="spotifyLink" placeholder="Pega el enlace de tu playlist de Spotify" value="'+escapeAttr(spotifyLastLink)+'">'+
+        '<button class="btn btn-small btn-primary" id="spotifyLoadBtn" type="button">Cargar</button>'+
+        '<button class="musicx" id="spotifyCancelBtn" type="button" aria-label="Cancelar">&times;</button>'+
+      '</div>'+
+      '<p class="musicnote">Reproductor oficial embebido de Spotify. Si no has iniciado sesión en Spotify en este navegador, solo sonarán previews de 30 s.</p>';
+    document.getElementById('spotifyLoadBtn').addEventListener('click', function(){
+      var val = document.getElementById('spotifyLink').value;
+      var uri = spotifyUriFromInput(val);
+      if(!uri){ alert('Pega un enlace de playlist, álbum o canción de Spotify (open.spotify.com/...).'); return; }
+      spotifyLastLink = val.trim();
+      try{ localStorage.setItem('core_spotify_link', spotifyLastLink); }catch(e){}
+      musicMode = 'spotify';
+      renderMusicCard();
+      loadSpotifyEmbed(uri);
+    });
+    document.getElementById('spotifyCancelBtn').addEventListener('click', function(){ musicMode='none'; renderMusicCard(); });
+
+  } else if(musicMode==='spotify'){
+    el.innerHTML =
+      '<div class="musicrow" style="align-items:flex-start;">'+
+        '<div id="spotifyEmbedWrap" style="flex:1;min-width:220px;"></div>'+
+        '<button class="musicx" id="musicRemove" type="button" aria-label="Quitar música">&times;</button>'+
+      '</div>';
+    document.getElementById('musicRemove').addEventListener('click', clearMusic);
+
+  } else {
+    el.innerHTML =
+      '<div class="musicrow">'+
+        '<span class="musiclabel">🎵 Música de fondo (opcional)</span>'+
+        '<button class="btn btn-small btn-secondary" id="musicPickBtn" type="button">Mi audio</button>'+
+        '<button class="btn btn-small btn-secondary" id="spotifyPickBtn" type="button">Spotify</button>'+
+        '<input type="file" id="musicFile" accept="audio/*" style="display:none">'+
+      '</div>';
+    document.getElementById('musicPickBtn').addEventListener('click', function(){ document.getElementById('musicFile').click(); });
+    document.getElementById('musicFile').addEventListener('change', function(e){
+      var file = e.target.files && e.target.files[0];
+      if(!file) return;
+      if(musicObjectUrl) URL.revokeObjectURL(musicObjectUrl);
+      musicObjectUrl = URL.createObjectURL(file);
+      musicAudio = new Audio(musicObjectUrl);
+      musicAudio.loop = true;
+      musicAudio.volume = musicVolumeValue/100;
+      musicFileName = file.name;
+      musicMode = 'file';
+      renderMusicCard();
+    });
+    document.getElementById('spotifyPickBtn').addEventListener('click', function(){ musicMode='spotify_input'; renderMusicCard(); });
+  }
 }
 
 function startMusic(){
-  if(!musicAudio) return;
-  try{ musicAudio.currentTime = 0; musicAudio.play().catch(function(){}); }catch(e){}
+  if(musicMode==='file' && musicAudio){ try{ musicAudio.currentTime = 0; musicAudio.play().catch(function(){}); }catch(e){} }
+  else if(musicMode==='spotify' && spotifyController){ try{ spotifyController.resume(); }catch(e){} }
 }
 function resumeMusic(){
-  if(!musicAudio) return;
-  try{ musicAudio.play().catch(function(){}); }catch(e){}
+  if(musicMode==='file' && musicAudio){ try{ musicAudio.play().catch(function(){}); }catch(e){} }
+  else if(musicMode==='spotify' && spotifyController){ try{ spotifyController.resume(); }catch(e){} }
 }
 function pauseMusic(){
-  if(!musicAudio) return;
-  try{ musicAudio.pause(); }catch(e){}
+  if(musicMode==='file' && musicAudio){ try{ musicAudio.pause(); }catch(e){} }
+  else if(musicMode==='spotify' && spotifyController){ try{ spotifyController.pause(); }catch(e){} }
 }
 function stopMusic(){
-  if(!musicAudio) return;
-  try{ musicAudio.pause(); musicAudio.currentTime = 0; }catch(e){}
+  if(musicMode==='file' && musicAudio){ try{ musicAudio.pause(); musicAudio.currentTime = 0; }catch(e){} }
+  else if(musicMode==='spotify' && spotifyController){ try{ spotifyController.pause(); }catch(e){} }
 }
 
 var runnerState = null;
@@ -901,7 +986,7 @@ renderEquipBar();
 renderTypeBar();
 renderSessionCard();
 renderLibrary();
-setupMusicControls();
+renderMusicCard();
 
 })();
 </script>
