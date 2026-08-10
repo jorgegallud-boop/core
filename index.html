@@ -593,15 +593,12 @@ function stopSpeech(){
   try{ if(window.speechSynthesis) window.speechSynthesis.cancel(); }catch(e){}
 }
 
-var musicMode = 'none'; // 'none' | 'config' | 'playlists' | 'active'
-var SPOTIFY_SCOPES = 'user-modify-playback-state user-read-playback-state playlist-read-private playlist-read-collaborative';
-var spotifyPlaylistsCache = null;
+var musicMode = 'none'; // 'none' | 'config' | 'active'
+var SPOTIFY_SCOPES = 'user-modify-playback-state user-read-playback-state';
+var FIXED_SPOTIFY_PLAYLIST_URI = 'spotify:playlist:1h3UACACM9GM9ju7ifeQpf';
 var spotifyActiveName = '';
-var spotifyActiveUri = '';
-try{
-  spotifyActiveName = localStorage.getItem('core_spotify_active_name') || '';
-  spotifyActiveUri = localStorage.getItem('core_spotify_active_uri') || '';
-}catch(e){}
+var spotifyActiveUri = FIXED_SPOTIFY_PLAYLIST_URI;
+try{ spotifyActiveName = localStorage.getItem('core_spotify_active_name') || ''; }catch(e){}
 
 function escapeAttr(s){
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -644,11 +641,8 @@ function spotifyDisconnect(){
     localStorage.removeItem('core_spotify_refresh_token');
     localStorage.removeItem('core_spotify_expires_at');
     localStorage.removeItem('core_spotify_active_name');
-    localStorage.removeItem('core_spotify_active_uri');
   }catch(e){}
-  spotifyPlaylistsCache = null;
   spotifyActiveName = '';
-  spotifyActiveUri = '';
   musicMode = 'none';
   renderMusicCard();
 }
@@ -705,8 +699,7 @@ function handleSpotifyRedirect(){
   }).then(function(r){ return r.json(); }).then(function(data){
     if(data.access_token){
       saveSpotifyTokens(data);
-      musicMode = 'playlists';
-      renderMusicCard();
+      activateFixedPlaylist();
     }
   }).catch(function(){});
 }
@@ -741,10 +734,24 @@ function spotifyApi(method, path, body){
   });
 }
 
-function fetchSpotifyPlaylists(){
-  return spotifyApi('GET','/me/playlists?limit=50').then(function(r){ return r.json(); }).then(function(data){
-    return (data && data.items) || [];
-  }).catch(function(){ return []; });
+function fetchSpotifyPlaylistName(){
+  var id = FIXED_SPOTIFY_PLAYLIST_URI.split(':').pop();
+  return spotifyApi('GET','/playlists/'+id+'?fields=name').then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(data){ return (data && data.name) || ''; }).catch(function(){ return ''; });
+}
+
+function activateFixedPlaylist(){
+  musicMode = 'active';
+  renderMusicCard();
+  spotifyPlayContext(FIXED_SPOTIFY_PLAYLIST_URI).then(reportSpotifyPlaybackResult).catch(function(){});
+  if(!spotifyActiveName){
+    fetchSpotifyPlaylistName().then(function(name){
+      if(!name) return;
+      spotifyActiveName = name;
+      try{ localStorage.setItem('core_spotify_active_name', name); }catch(e){}
+      if(musicMode==='active') renderMusicCard();
+    });
+  }
 }
 
 var spotifyDeviceId = '';
@@ -787,17 +794,10 @@ function spotifyResume(){
   var path = '/me/player/play' + (spotifyDeviceId ? ('?device_id='+encodeURIComponent(spotifyDeviceId)) : '');
   return spotifyApi('PUT', path).catch(function(){});
 }
-
-function clearMusic(){
-  spotifyPause();
-  musicMode = 'playlists';
-  spotifyActiveName = '';
-  spotifyActiveUri = '';
-  try{
-    localStorage.removeItem('core_spotify_active_name');
-    localStorage.removeItem('core_spotify_active_uri');
-  }catch(e){}
-  renderMusicCard();
+function spotifyNext(){
+  var path = '/me/player/next' + (spotifyDeviceId ? ('?device_id='+encodeURIComponent(spotifyDeviceId)) : '');
+  return spotifyApi('POST', path).then(reportSpotifyPlaybackResult)
+    .catch(function(){ setSpotifyRunnerNote('🎵 No se pudo pasar de canción.'); });
 }
 
 function renderMusicCard(){
@@ -831,32 +831,16 @@ function renderMusicCard(){
     });
     document.getElementById('spotifyConfigCancel').addEventListener('click', function(){ musicMode='none'; renderMusicCard(); });
 
-  } else if(musicMode==='playlists'){
-    el.innerHTML =
-      '<div class="musicrow">'+
-        '<span class="musiclabel">🎵 Elige una playlist</span>'+
-        '<button class="musicx" id="spotifyLogout" type="button" aria-label="Cerrar sesión de Spotify">&times;</button>'+
-      '</div>'+
-      '<div class="spotifylist" id="spotifyList"><p class="musicnote">Cargando tus playlists…</p></div>';
-    document.getElementById('spotifyLogout').addEventListener('click', spotifyDisconnect);
-    if(spotifyPlaylistsCache){ renderPlaylistList(spotifyPlaylistsCache); }
-    else{
-      fetchSpotifyPlaylists().then(function(items){
-        spotifyPlaylistsCache = items;
-        renderPlaylistList(items);
-      });
-    }
-
   } else if(musicMode==='active'){
     el.innerHTML =
       '<div class="musicrow">'+
-        '<span class="musiclabel">🎵 '+escapeAttr(spotifyActiveName)+'</span>'+
-        '<button class="btn btn-small btn-secondary" id="spotifyChange" type="button">Cambiar</button>'+
-        '<button class="musicx" id="musicRemove" type="button" aria-label="Quitar música">&times;</button>'+
+        '<span class="musiclabel">🎵 '+escapeAttr(spotifyActiveName || 'Playlist conectada')+'</span>'+
+        '<button class="btn btn-small btn-secondary" id="spotifyNextBtn" type="button">⏭ Siguiente</button>'+
+        '<button class="musicx" id="musicRemove" type="button" aria-label="Desconectar Spotify">&times;</button>'+
       '</div>'+
       '<p class="musicnote" id="spotifyDeviceNote"></p>';
-    document.getElementById('spotifyChange').addEventListener('click', function(){ musicMode='playlists'; renderMusicCard(); });
-    document.getElementById('musicRemove').addEventListener('click', clearMusic);
+    document.getElementById('spotifyNextBtn').addEventListener('click', spotifyNext);
+    document.getElementById('musicRemove').addEventListener('click', spotifyDisconnect);
 
   } else {
     el.innerHTML =
@@ -871,48 +855,24 @@ function renderMusicCard(){
   }
 }
 
-function renderPlaylistList(items){
-  var listEl = document.getElementById('spotifyList');
-  if(!listEl) return;
-  if(!items.length){
-    listEl.innerHTML = '<p class="musicnote">No se encontraron playlists (o falló la conexión). Abre Spotify en tu móvil y prueba de nuevo.</p>';
-    return;
-  }
-  listEl.innerHTML = items.map(function(p, idx){
-    var img = (p.images && p.images[0] && p.images[0].url) || '';
-    return '<div class="spotifyitem" data-idx="'+idx+'">'+
-      (img ? '<img src="'+escapeAttr(img)+'" alt="">' : '<span style="width:32px;height:32px;flex-shrink:0;"></span>')+
-      '<span>'+escapeAttr(p.name)+'</span></div>';
-  }).join('');
-  Array.prototype.forEach.call(listEl.querySelectorAll('[data-idx]'), function(rowEl){
-    rowEl.addEventListener('click', function(){
-      var item = items[Number(rowEl.getAttribute('data-idx'))];
-      spotifyActiveName = item.name;
-      spotifyActiveUri = item.uri;
-      try{
-        localStorage.setItem('core_spotify_active_name', spotifyActiveName);
-        localStorage.setItem('core_spotify_active_uri', spotifyActiveUri);
-      }catch(e){}
-      musicMode = 'active';
-      renderMusicCard();
-      spotifyPlayContext(item.uri).then(function(r){
-        var note = document.getElementById('spotifyDeviceNote');
-        if(!note) return;
-        if(r.status===404) note.textContent = 'Abre Spotify en tu móvil para que aparezca como dispositivo activo y pulsa "Cambiar" para reintentarlo.';
-        else if(r.status===403) note.textContent = 'Controlar la reproducción requiere Spotify Premium.';
-      }).catch(function(){});
-    });
-  });
-}
-
 function initMusicMode(){
   if(!spotifyIsConnected()){ musicMode = 'none'; return; }
-  musicMode = (spotifyActiveUri && spotifyActiveName) ? 'active' : 'playlists';
+  musicMode = 'active';
+  if(!spotifyActiveName){
+    fetchSpotifyPlaylistName().then(function(name){
+      if(!name) return;
+      spotifyActiveName = name;
+      try{ localStorage.setItem('core_spotify_active_name', name); }catch(e){}
+      if(musicMode==='active') renderMusicCard();
+    });
+  }
 }
 
 function setSpotifyRunnerNote(msg){
-  var note = document.getElementById('spotifyRunnerNote');
-  if(note) note.textContent = msg || '';
+  ['spotifyDeviceNote','spotifyRunnerNote'].forEach(function(id){
+    var el = document.getElementById(id);
+    if(el) el.textContent = msg || '';
+  });
 }
 
 function reportSpotifyPlaybackResult(r){
@@ -1030,9 +990,13 @@ function renderRunnerStep(justEntered){
     (!isRest ? '<div class="runner-desc">'+(lib.brief||lib.cue)+'</div>' : '')+
     (nextLabel ? '<div class="runner-next">Siguiente: '+nextLabel+'</div>' : '<div class="runner-next">Última serie</div>')+
     (musicMode==='active' ? '<div class="runner-desc" id="spotifyRunnerNote"></div>' : '')+
-    '<button class="runner-info" id="runnerInfoBtn">Ver ejercicio</button>';
+    '<button class="runner-info" id="runnerInfoBtn">Ver ejercicio</button>'+
+    (musicMode==='active' ? '<button class="runner-info" id="spotifyRunnerNextBtn">⏭ Siguiente canción</button>' : '');
 
   document.getElementById('runnerInfoBtn').addEventListener('click', function(){ openInfo(step.key); });
+  if(musicMode==='active'){
+    document.getElementById('spotifyRunnerNextBtn').addEventListener('click', spotifyNext);
+  }
 
   updateProgress();
   runnerState.announcedMarks = {};
