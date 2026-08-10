@@ -366,6 +366,13 @@ var CORE_A = [
   {key:'glute_bridge_bipodal', sets:3, work:30, rest:5},
   {key:'side_plank_knee', sets:2, work:35, rest:5}
 ];
+var CORE_A_PRO = [
+  {key:'deadbug', sets:3, work:50, rest:5},
+  {key:'birddog', sets:3, work:55, rest:5},
+  {key:'plank_front', sets:3, work:40, rest:5},
+  {key:'glute_bridge_unilateral', sets:3, work:40, rest:5},
+  {key:'side_plank_foot', sets:3, work:55, rest:5}
+];
 var CORE_B = [
   {key:'plank_shoulder_tap', sets:3, work:40, rest:5},
   {key:'bear_hold', sets:3, work:20, rest:5},
@@ -389,16 +396,13 @@ var BAND_B = [
 ];
 
 var SESSION_TYPES = {
-  coreA:{equip:'none', kind:'A', title:'Estabilidad · Sin material', tag:'Core A', desc:'Dead bug, bird-dog, plancha frontal, puente de glúteo y plancha lateral.'},
-  coreB:{equip:'none', kind:'B', title:'Anti-rotación · Sin material', tag:'Core B', desc:'Plancha con toques de hombro, bear hold, marcha de puente y plancha con giro.'},
-  bandA:{equip:'band', kind:'A', title:'Estabilidad · Con gomas', tag:'Banda A', desc:'Puente, dead bug, bird-dog y plancha con miniband, más paso lateral.'},
-  bandB:{equip:'band', kind:'B', title:'Anti-rotación · Con gomas', tag:'Banda B', desc:'Pallof press, remo anti-rotación, leñador y anti-flexión lateral con goma.'}
+  coreA:{equip:'none', short:'Estabilidad', title:'Estabilidad · Sin material', tag:'Core A', desc:'Dead bug, bird-dog, plancha frontal, puente de glúteo y plancha lateral.', session:CORE_A},
+  coreAPro:{equip:'none', short:'Estabilidad Pro', title:'Estabilidad Pro · Sin material', tag:'Core A Pro', desc:'Versión más exigente: puente de glúteo a una pierna, plancha lateral con apoyo en pie y series más largas.', session:CORE_A_PRO},
+  coreB:{equip:'none', short:'Anti-rotación', title:'Anti-rotación · Sin material', tag:'Core B', desc:'Plancha con toques de hombro, bear hold, marcha de puente y plancha con giro.', session:CORE_B},
+  bandA:{equip:'band', short:'Estabilidad', title:'Estabilidad · Con gomas', tag:'Banda A', desc:'Puente, dead bug, bird-dog y plancha con miniband, más paso lateral.', session:BAND_A},
+  bandB:{equip:'band', short:'Anti-rotación', title:'Anti-rotación · Con gomas', tag:'Banda B', desc:'Pallof press, remo anti-rotación, leñador y anti-flexión lateral con goma.', session:BAND_B}
 };
-
-function sessionArray(equip, kind){
-  var table = { none:{A:CORE_A, B:CORE_B}, band:{A:BAND_A, B:BAND_B} };
-  return table[equip][kind];
-}
+var SESSION_ORDER_BY_EQUIP = { none: ['coreA','coreAPro','coreB'], band: ['bandA','bandB'] };
 
 function fmtTime(sec){
   sec = Math.max(0, Math.round(sec));
@@ -415,23 +419,23 @@ function estimateSeconds(session){
 }
 
 var selectedEquip = 'none';
-var selectedKind = 'A';
+var selectedSession = 'coreA';
 try{
   var storedEquip = localStorage.getItem('core_selected_equip');
   if(storedEquip==='none' || storedEquip==='band') selectedEquip = storedEquip;
-  var storedKind = localStorage.getItem('core_selected_kind');
-  if(storedKind==='A' || storedKind==='B') selectedKind = storedKind;
+  var storedSession = localStorage.getItem('core_selected_session');
+  if(storedSession && SESSION_TYPES[storedSession] && SESSION_TYPES[storedSession].equip===selectedEquip) selectedSession = storedSession;
+  else selectedSession = SESSION_ORDER_BY_EQUIP[selectedEquip][0];
 }catch(e){}
 
 function saveSelection(){
   try{
     localStorage.setItem('core_selected_equip', selectedEquip);
-    localStorage.setItem('core_selected_kind', selectedKind);
+    localStorage.setItem('core_selected_session', selectedSession);
   }catch(e){}
 }
 
-function currentSessionKey(){ return (selectedEquip==='band' ? 'band' : 'core') + selectedKind; }
-function currentSessionInfo(){ return SESSION_TYPES[currentSessionKey()]; }
+function currentSessionInfo(){ return SESSION_TYPES[selectedSession]; }
 
 function renderEquipBar(){
   var el = document.getElementById('equipBar');
@@ -443,6 +447,9 @@ function renderEquipBar(){
   Array.prototype.forEach.call(el.querySelectorAll('[data-equip]'), function(btn){
     btn.addEventListener('click', function(){
       selectedEquip = btn.getAttribute('data-equip');
+      if(SESSION_TYPES[selectedSession].equip !== selectedEquip){
+        selectedSession = SESSION_ORDER_BY_EQUIP[selectedEquip][0];
+      }
       saveSelection();
       renderEquipBar(); renderTypeBar(); renderSessionCard();
     });
@@ -451,16 +458,15 @@ function renderEquipBar(){
 
 function renderTypeBar(){
   var el = document.getElementById('typeBar');
-  var infoA = SESSION_TYPES[(selectedEquip==='band'?'band':'core')+'A'];
-  var infoB = SESSION_TYPES[(selectedEquip==='band'?'band':'core')+'B'];
-  el.innerHTML =
-    '<button class="typechip'+(selectedKind==='A'?' active':'')+'" data-kind="A">'+
-      '<span class="tname">Estabilidad</span><span class="tsub">'+infoA.tag+'</span></button>'+
-    '<button class="typechip'+(selectedKind==='B'?' active':'')+'" data-kind="B">'+
-      '<span class="tname">Anti-rotación</span><span class="tsub">'+infoB.tag+'</span></button>';
-  Array.prototype.forEach.call(el.querySelectorAll('[data-kind]'), function(btn){
+  var keys = SESSION_ORDER_BY_EQUIP[selectedEquip];
+  el.innerHTML = keys.map(function(key){
+    var info = SESSION_TYPES[key];
+    return '<button class="typechip'+(key===selectedSession?' active':'')+'" data-session="'+key+'">'+
+      '<span class="tname">'+info.short+'</span><span class="tsub">'+info.tag+'</span></button>';
+  }).join('');
+  Array.prototype.forEach.call(el.querySelectorAll('[data-session]'), function(btn){
     btn.addEventListener('click', function(){
-      selectedKind = btn.getAttribute('data-kind');
+      selectedSession = btn.getAttribute('data-session');
       saveSelection();
       renderTypeBar(); renderSessionCard();
     });
@@ -469,7 +475,7 @@ function renderTypeBar(){
 
 function renderSessionCard(){
   var info = currentSessionInfo();
-  var session = sessionArray(selectedEquip, selectedKind);
+  var session = info.session;
   var el = document.getElementById('sessionCard');
   var rows = WARM.map(function(ex){ return exRow(ex,'Calentamiento'); }).join('') +
              session.map(function(ex){ return exRow(ex,'Principal'); }).join('') +
