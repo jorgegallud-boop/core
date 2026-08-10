@@ -680,7 +680,8 @@ function spotifyConnect(){
       redirect_uri: getRedirectUri(),
       code_challenge_method: 'S256',
       code_challenge: challenge,
-      scope: SPOTIFY_SCOPES
+      scope: SPOTIFY_SCOPES,
+      show_dialog: 'true'
     });
     window.location.href = 'https://accounts.spotify.com/authorize?' + params.toString();
   });
@@ -749,9 +750,14 @@ function fetchSpotifyPlaylists(){
 var spotifyDeviceId = '';
 
 function spotifyGetDevices(){
-  return spotifyApi('GET','/me/player/devices').then(function(r){ return r.json(); }).then(function(data){
-    return (data && data.devices) || [];
-  }).catch(function(){ return []; });
+  return spotifyApi('GET','/me/player/devices').then(function(r){
+    if(!r.ok){
+      return r.json().catch(function(){ return {}; }).then(function(body){
+        return { error: r.status, message: (body.error && body.error.message) || '', devices: [] };
+      });
+    }
+    return r.json().then(function(data){ return { error:0, message:'', devices: (data && data.devices) || [] }; });
+  }).catch(function(){ return { error:-1, message:'', devices: [] }; });
 }
 function pickSpotifyDeviceId(devices){
   if(!devices.length) return '';
@@ -763,10 +769,13 @@ function pickSpotifyDeviceId(devices){
 }
 
 function spotifyPlayContext(uri){
-  return spotifyGetDevices().then(function(devices){
-    var deviceId = pickSpotifyDeviceId(devices);
+  return spotifyGetDevices().then(function(result){
+    if(result.error===401 || result.error===403){
+      return { status: result.error, ok:false, _msg: result.message, _stage:'devices' };
+    }
+    var deviceId = pickSpotifyDeviceId(result.devices);
     spotifyDeviceId = deviceId;
-    if(!deviceId) return { status:404, ok:false };
+    if(!deviceId) return { status:404, ok:false, _stage:'nodevice' };
     return spotifyApi('PUT','/me/player/play?device_id='+encodeURIComponent(deviceId), { context_uri: uri });
   });
 }
@@ -907,11 +916,21 @@ function setSpotifyRunnerNote(msg){
 }
 
 function reportSpotifyPlaybackResult(r){
-  if(r && r.status===404) setSpotifyRunnerNote('🎵 Abre Spotify en tu móvil para activar el dispositivo, y vuelve a pulsar "Empezar entrenamiento".');
-  else if(r && r.status===403) setSpotifyRunnerNote('🎵 Controlar la reproducción requiere Spotify Premium.');
-  else if(r && r.status===401) setSpotifyRunnerNote('🎵 La sesión de Spotify caducó: ve al bloque de música y vuelve a conectar.');
-  else if(r && !r.ok) setSpotifyRunnerNote('🎵 Spotify no pudo iniciar la música (código '+r.status+').');
-  else setSpotifyRunnerNote('');
+  if(!r){ setSpotifyRunnerNote(''); return; }
+  if(r.status===404 && r._stage==='nodevice'){
+    setSpotifyRunnerNote('🎵 No aparece tu móvil como dispositivo de Spotify. Abre la app, dale a reproducir algo un segundo (para que se active) y vuelve a pulsar "Empezar entrenamiento".');
+  } else if(r.status===401 || r.status===403){
+    var reason = r._stage==='devices'
+      ? 'Falta el permiso para leer tus dispositivos: '
+      : 'Sin permiso para controlar la reproducción (o falta Premium): ';
+    setSpotifyRunnerNote('🎵 '+reason+'ve al bloque de música, pulsa "×" y vuelve a "Conectar Spotify" (fíjate en que te enseñe otra vez la pantalla de permisos de Spotify).'+(r._msg ? ' ['+r._msg+']' : ''));
+  } else if(r.status===404){
+    setSpotifyRunnerNote('🎵 Spotify no encontró la reproducción (404).');
+  } else if(!r.ok){
+    setSpotifyRunnerNote('🎵 Spotify no pudo iniciar la música (código '+r.status+').');
+  } else {
+    setSpotifyRunnerNote('');
+  }
 }
 
 function startMusic(){
