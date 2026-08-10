@@ -44,6 +44,13 @@
     border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px;}
   .musicx{border:none;background:transparent;color:var(--ink-mute);font-size:19px;cursor:pointer;line-height:1;padding:0 2px;}
   .musicnote{font-size:11px;color:var(--ink-mute);margin-top:6px;line-height:1.4;}
+  .musicnote code{background:var(--bg);padding:1px 5px;border-radius:4px;font-size:10.5px;word-break:break-all;}
+  .spotifylink{color:var(--accent);}
+  .spotifylist{max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:2px;margin-top:6px;}
+  .spotifyitem{display:flex;align-items:center;gap:8px;padding:7px 4px;border-radius:8px;cursor:pointer;
+    font-size:13px;color:var(--ink);}
+  .spotifyitem:hover{background:var(--accent-soft);}
+  .spotifyitem img{width:32px;height:32px;border-radius:4px;object-fit:cover;flex-shrink:0;background:var(--line);}
   .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:1.1rem 1.1rem 1.2rem;}
   .card + .card{margin-top:.9rem;}
   .badge{display:inline-block;font-size:11px;font-weight:600;padding:3px 9px;border-radius:99px;
@@ -586,116 +593,288 @@ function stopSpeech(){
   try{ if(window.speechSynthesis) window.speechSynthesis.cancel(); }catch(e){}
 }
 
-var musicMode = 'none'; // 'none' | 'spotify_input' | 'spotify'
-var spotifyController = null;
-var spotifyApiLoading = false;
-var spotifyLastLink = '';
-try{ spotifyLastLink = localStorage.getItem('core_spotify_link') || ''; }catch(e){}
+var musicMode = 'none'; // 'none' | 'config' | 'playlists' | 'active'
+var SPOTIFY_SCOPES = 'user-modify-playback-state playlist-read-private playlist-read-collaborative';
+var spotifyPlaylistsCache = null;
+var spotifyActiveName = '';
+var spotifyActiveUri = '';
+try{
+  spotifyActiveName = localStorage.getItem('core_spotify_active_name') || '';
+  spotifyActiveUri = localStorage.getItem('core_spotify_active_uri') || '';
+}catch(e){}
 
 function escapeAttr(s){
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-function spotifyUriFromInput(text){
-  text = (text||'').trim();
-  var m = text.match(/open\.spotify\.com\/(playlist|album|track)\/([a-zA-Z0-9]+)/);
-  if(m) return 'spotify:'+m[1]+':'+m[2];
-  if(/^spotify:(playlist|album|track):[a-zA-Z0-9]+$/.test(text)) return text;
-  return null;
+function getRedirectUri(){
+  return window.location.origin + window.location.pathname;
+}
+function getSpotifyClientId(){
+  try{ return localStorage.getItem('core_spotify_client_id') || ''; }catch(e){ return ''; }
+}
+function setSpotifyClientId(id){
+  try{ localStorage.setItem('core_spotify_client_id', id); }catch(e){}
+}
+function getSpotifyTokenData(){
+  try{
+    return {
+      access: localStorage.getItem('core_spotify_access_token') || '',
+      refresh: localStorage.getItem('core_spotify_refresh_token') || '',
+      expiresAt: Number(localStorage.getItem('core_spotify_expires_at') || 0)
+    };
+  }catch(e){ return { access:'', refresh:'', expiresAt:0 }; }
+}
+function saveSpotifyTokens(data){
+  try{
+    if(data.access_token) localStorage.setItem('core_spotify_access_token', data.access_token);
+    if(data.refresh_token) localStorage.setItem('core_spotify_refresh_token', data.refresh_token);
+    if(data.expires_in) localStorage.setItem('core_spotify_expires_at', String(Date.now() + data.expires_in*1000));
+  }catch(e){}
+}
+function spotifyIsConnected(){
+  var t = getSpotifyTokenData();
+  return !!(t.access || t.refresh);
+}
+function spotifyDisconnect(){
+  try{
+    localStorage.removeItem('core_spotify_access_token');
+    localStorage.removeItem('core_spotify_refresh_token');
+    localStorage.removeItem('core_spotify_expires_at');
+    localStorage.removeItem('core_spotify_active_name');
+    localStorage.removeItem('core_spotify_active_uri');
+  }catch(e){}
+  spotifyPlaylistsCache = null;
+  spotifyActiveName = '';
+  spotifyActiveUri = '';
+  musicMode = 'none';
+  renderMusicCard();
 }
 
-function loadSpotifyApiScript(cb){
-  if(window.SpotifyIframeApi){ cb(window.SpotifyIframeApi); return; }
-  if(spotifyApiLoading){
-    var check = setInterval(function(){
-      if(window.SpotifyIframeApi){ clearInterval(check); cb(window.SpotifyIframeApi); }
-    }, 150);
-    return;
-  }
-  spotifyApiLoading = true;
-  window.onSpotifyIframeApiReady = function(IFrameAPI){
-    window.SpotifyIframeApi = IFrameAPI;
-    cb(IFrameAPI);
-  };
-  var s = document.createElement('script');
-  s.src = 'https://open.spotify.com/embed/iframe-api/v1';
-  s.async = true;
-  document.head.appendChild(s);
+function b64url(buffer){
+  var bytes = new Uint8Array(buffer), str = '';
+  for(var i=0;i<bytes.length;i++) str += String.fromCharCode(bytes[i]);
+  return btoa(str).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+function randomVerifier(){
+  var arr = new Uint8Array(64);
+  crypto.getRandomValues(arr);
+  return b64url(arr.buffer);
+}
+function sha256(str){
+  return crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
 }
 
-function loadSpotifyEmbed(uri){
-  var wrap = document.getElementById('spotifyEmbedWrap');
-  if(!wrap) return;
-  wrap.innerHTML = '';
-  var el = document.createElement('div');
-  wrap.appendChild(el);
-  loadSpotifyApiScript(function(IFrameAPI){
-    IFrameAPI.createController(el, { uri: uri, width:'100%', height:'80' }, function(controller){
-      spotifyController = controller;
+function spotifyConnect(){
+  var clientId = getSpotifyClientId();
+  if(!clientId) return;
+  var verifier = randomVerifier();
+  try{ sessionStorage.setItem('core_spotify_verifier', verifier); }catch(e){}
+  sha256(verifier).then(function(hash){
+    var challenge = b64url(hash);
+    var params = new URLSearchParams({
+      client_id: clientId,
+      response_type: 'code',
+      redirect_uri: getRedirectUri(),
+      code_challenge_method: 'S256',
+      code_challenge: challenge,
+      scope: SPOTIFY_SCOPES
+    });
+    window.location.href = 'https://accounts.spotify.com/authorize?' + params.toString();
+  });
+}
+
+function handleSpotifyRedirect(){
+  var params = new URLSearchParams(window.location.search);
+  var code = params.get('code');
+  if(!code) return;
+  var verifier = null;
+  try{ verifier = sessionStorage.getItem('core_spotify_verifier'); }catch(e){}
+  var clientId = getSpotifyClientId();
+  window.history.replaceState({}, document.title, getRedirectUri());
+  if(!verifier || !clientId) return;
+  var body = new URLSearchParams({
+    client_id: clientId, grant_type:'authorization_code', code: code,
+    redirect_uri: getRedirectUri(), code_verifier: verifier
+  });
+  fetch('https://accounts.spotify.com/api/token', {
+    method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body.toString()
+  }).then(function(r){ return r.json(); }).then(function(data){
+    if(data.access_token){
+      saveSpotifyTokens(data);
+      musicMode = 'playlists';
+      renderMusicCard();
+    }
+  }).catch(function(){});
+}
+
+function refreshSpotifyToken(){
+  var t = getSpotifyTokenData();
+  var clientId = getSpotifyClientId();
+  if(!t.refresh || !clientId) return Promise.resolve('');
+  var body = new URLSearchParams({ client_id: clientId, grant_type:'refresh_token', refresh_token: t.refresh });
+  return fetch('https://accounts.spotify.com/api/token', {
+    method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body.toString()
+  }).then(function(r){ return r.json(); }).then(function(data){
+    if(data.access_token){ saveSpotifyTokens(data); return data.access_token; }
+    return '';
+  }).catch(function(){ return ''; });
+}
+
+function getSpotifyAccessToken(){
+  var t = getSpotifyTokenData();
+  if(t.access && Date.now() < t.expiresAt - 5000) return Promise.resolve(t.access);
+  return refreshSpotifyToken();
+}
+
+function spotifyApi(method, path, body){
+  return getSpotifyAccessToken().then(function(token){
+    if(!token) throw new Error('no_token');
+    return fetch('https://api.spotify.com/v1'+path, {
+      method: method,
+      headers: { Authorization:'Bearer '+token, 'Content-Type':'application/json' },
+      body: body ? JSON.stringify(body) : undefined
     });
   });
 }
 
+function fetchSpotifyPlaylists(){
+  return spotifyApi('GET','/me/playlists?limit=50').then(function(r){ return r.json(); }).then(function(data){
+    return (data && data.items) || [];
+  }).catch(function(){ return []; });
+}
+
+function spotifyPlayContext(uri){
+  return spotifyApi('PUT','/me/player/play', { context_uri: uri });
+}
+function spotifyPause(){ return spotifyApi('PUT','/me/player/pause').catch(function(){}); }
+function spotifyResume(){ return spotifyApi('PUT','/me/player/play').catch(function(){}); }
+
 function clearMusic(){
-  if(spotifyController){ try{ spotifyController.pause(); }catch(e){} }
-  spotifyController = null;
-  musicMode = 'none';
+  spotifyPause();
+  musicMode = 'playlists';
+  spotifyActiveName = '';
+  spotifyActiveUri = '';
+  try{
+    localStorage.removeItem('core_spotify_active_name');
+    localStorage.removeItem('core_spotify_active_uri');
+  }catch(e){}
   renderMusicCard();
 }
 
 function renderMusicCard(){
   var el = document.getElementById('musicCard');
   if(!el) return;
+  var clientId = getSpotifyClientId();
 
-  if(musicMode==='spotify_input'){
+  if(musicMode==='config'){
     el.innerHTML =
       '<div class="musicrow">'+
-        '<input type="text" id="spotifyLink" placeholder="Pega el enlace de tu playlist de Spotify" value="'+escapeAttr(spotifyLastLink)+'">'+
-        '<button class="btn btn-small btn-primary" id="spotifyLoadBtn" type="button">Cargar</button>'+
-        '<button class="musicx" id="spotifyCancelBtn" type="button" aria-label="Cancelar">&times;</button>'+
+        '<input type="text" id="spotifyClientIdInput" placeholder="Client ID de Spotify" value="'+escapeAttr(clientId)+'">'+
+        '<button class="btn btn-small btn-primary" id="spotifyClientIdSave" type="button">Guardar</button>'+
+        '<button class="musicx" id="spotifyConfigCancel" type="button" aria-label="Cancelar">&times;</button>'+
       '</div>'+
-      '<p class="musicnote">Reproductor oficial embebido de Spotify. Si no has iniciado sesión en Spotify en este navegador, solo sonarán previews de 30 s.</p>';
-    document.getElementById('spotifyLoadBtn').addEventListener('click', function(){
-      var val = document.getElementById('spotifyLink').value;
-      var uri = spotifyUriFromInput(val);
-      if(!uri){ alert('Pega un enlace de playlist, álbum o canción de Spotify (open.spotify.com/...).'); return; }
-      spotifyLastLink = val.trim();
-      try{ localStorage.setItem('core_spotify_link', spotifyLastLink); }catch(e){}
-      musicMode = 'spotify';
+      '<p class="musicnote">Créala gratis en <a class="spotifylink" href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener">developer.spotify.com/dashboard</a>. '+
+      'Como "Redirect URI" de la app pon exactamente: <code>'+escapeAttr(getRedirectUri())+'</code></p>';
+    document.getElementById('spotifyClientIdSave').addEventListener('click', function(){
+      var val = document.getElementById('spotifyClientIdInput').value.trim();
+      if(!val) return;
+      setSpotifyClientId(val);
+      musicMode = 'none';
       renderMusicCard();
-      loadSpotifyEmbed(uri);
     });
-    document.getElementById('spotifyCancelBtn').addEventListener('click', function(){ musicMode='none'; renderMusicCard(); });
+    document.getElementById('spotifyConfigCancel').addEventListener('click', function(){ musicMode='none'; renderMusicCard(); });
 
-  } else if(musicMode==='spotify'){
+  } else if(musicMode==='playlists'){
     el.innerHTML =
-      '<div class="musicrow" style="align-items:flex-start;">'+
-        '<div id="spotifyEmbedWrap" style="flex:1;min-width:220px;"></div>'+
+      '<div class="musicrow">'+
+        '<span class="musiclabel">🎵 Elige una playlist</span>'+
+        '<button class="musicx" id="spotifyLogout" type="button" aria-label="Cerrar sesión de Spotify">&times;</button>'+
+      '</div>'+
+      '<div class="spotifylist" id="spotifyList"><p class="musicnote">Cargando tus playlists…</p></div>';
+    document.getElementById('spotifyLogout').addEventListener('click', spotifyDisconnect);
+    if(spotifyPlaylistsCache){ renderPlaylistList(spotifyPlaylistsCache); }
+    else{
+      fetchSpotifyPlaylists().then(function(items){
+        spotifyPlaylistsCache = items;
+        renderPlaylistList(items);
+      });
+    }
+
+  } else if(musicMode==='active'){
+    el.innerHTML =
+      '<div class="musicrow">'+
+        '<span class="musiclabel">🎵 '+escapeAttr(spotifyActiveName)+'</span>'+
+        '<button class="btn btn-small btn-secondary" id="spotifyChange" type="button">Cambiar</button>'+
         '<button class="musicx" id="musicRemove" type="button" aria-label="Quitar música">&times;</button>'+
-      '</div>';
+      '</div>'+
+      '<p class="musicnote" id="spotifyDeviceNote"></p>';
+    document.getElementById('spotifyChange').addEventListener('click', function(){ musicMode='playlists'; renderMusicCard(); });
     document.getElementById('musicRemove').addEventListener('click', clearMusic);
 
   } else {
     el.innerHTML =
       '<div class="musicrow">'+
         '<span class="musiclabel">🎵 Música de fondo (opcional)</span>'+
-        '<button class="btn btn-small btn-secondary" id="spotifyPickBtn" type="button">Añadir playlist de Spotify</button>'+
+        '<button class="btn btn-small btn-secondary" id="spotifyMainBtn" type="button">Conectar Spotify</button>'+
       '</div>';
-    document.getElementById('spotifyPickBtn').addEventListener('click', function(){ musicMode='spotify_input'; renderMusicCard(); });
+    document.getElementById('spotifyMainBtn').addEventListener('click', function(){
+      if(clientId) spotifyConnect();
+      else { musicMode='config'; renderMusicCard(); }
+    });
   }
 }
 
+function renderPlaylistList(items){
+  var listEl = document.getElementById('spotifyList');
+  if(!listEl) return;
+  if(!items.length){
+    listEl.innerHTML = '<p class="musicnote">No se encontraron playlists (o falló la conexión). Abre Spotify en tu móvil y prueba de nuevo.</p>';
+    return;
+  }
+  listEl.innerHTML = items.map(function(p, idx){
+    var img = (p.images && p.images[0] && p.images[0].url) || '';
+    return '<div class="spotifyitem" data-idx="'+idx+'">'+
+      (img ? '<img src="'+escapeAttr(img)+'" alt="">' : '<span style="width:32px;height:32px;flex-shrink:0;"></span>')+
+      '<span>'+escapeAttr(p.name)+'</span></div>';
+  }).join('');
+  Array.prototype.forEach.call(listEl.querySelectorAll('[data-idx]'), function(rowEl){
+    rowEl.addEventListener('click', function(){
+      var item = items[Number(rowEl.getAttribute('data-idx'))];
+      spotifyActiveName = item.name;
+      spotifyActiveUri = item.uri;
+      try{
+        localStorage.setItem('core_spotify_active_name', spotifyActiveName);
+        localStorage.setItem('core_spotify_active_uri', spotifyActiveUri);
+      }catch(e){}
+      musicMode = 'active';
+      renderMusicCard();
+      spotifyPlayContext(item.uri).then(function(r){
+        var note = document.getElementById('spotifyDeviceNote');
+        if(!note) return;
+        if(r.status===404) note.textContent = 'Abre Spotify en tu móvil para que aparezca como dispositivo activo y pulsa "Cambiar" para reintentarlo.';
+        else if(r.status===403) note.textContent = 'Controlar la reproducción requiere Spotify Premium.';
+      }).catch(function(){});
+    });
+  });
+}
+
+function initMusicMode(){
+  if(!spotifyIsConnected()){ musicMode = 'none'; return; }
+  musicMode = (spotifyActiveUri && spotifyActiveName) ? 'active' : 'playlists';
+}
+
 function startMusic(){
-  if(musicMode==='spotify' && spotifyController){ try{ spotifyController.resume(); }catch(e){} }
+  if(musicMode==='active' && spotifyActiveUri) spotifyPlayContext(spotifyActiveUri).catch(function(){});
 }
 function resumeMusic(){
-  if(musicMode==='spotify' && spotifyController){ try{ spotifyController.resume(); }catch(e){} }
+  if(musicMode==='active') spotifyResume();
 }
 function pauseMusic(){
-  if(musicMode==='spotify' && spotifyController){ try{ spotifyController.pause(); }catch(e){} }
+  if(musicMode==='active') spotifyPause();
 }
 function stopMusic(){
-  if(musicMode==='spotify' && spotifyController){ try{ spotifyController.pause(); }catch(e){} }
+  if(musicMode==='active') spotifyPause();
 }
 
 var runnerState = null;
@@ -939,6 +1118,8 @@ renderEquipBar();
 renderTypeBar();
 renderSessionCard();
 renderLibrary();
+handleSpotifyRedirect();
+initMusicMode();
 renderMusicCard();
 
 })();
