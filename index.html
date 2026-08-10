@@ -97,7 +97,6 @@
   .runner-name.rest{color:var(--rest);}
   .runner-set{font-size:13.5px;color:var(--ink-soft);margin-bottom:1rem;}
   .runner-time{font-size:76px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1;margin:.4rem 0;}
-  .runner-side{font-size:14px;font-weight:600;color:var(--warn);min-height:20px;margin-bottom:.2rem;}
   .runner-next{font-size:13px;color:var(--ink-mute);margin-top:.8rem;}
   .runner-desc{font-size:13px;color:var(--ink-soft);max-width:320px;margin:.5rem auto 0;line-height:1.45;}
   .runner-info{margin-top:.7rem;background:transparent;border:1px solid var(--line);border-radius:10px;color:var(--ink-soft);
@@ -551,7 +550,6 @@ function beep(freq, dur, vol){
 function beepWorkStart(){ beep(880,150,0.16); setTimeout(function(){ beep(1046,150,0.16); },160); }
 function beepRestStart(){ beep(440,220,0.14); }
 function beepTick(){ beep(660,70,0.1); }
-function beepSwitch(){ beep(740,120,0.15); setTimeout(function(){ beep(740,120,0.15); },140); }
 function beepFinish(){ beep(660,140,0.18); setTimeout(function(){ beep(880,140,0.18); },150); setTimeout(function(){ beep(1174,220,0.2); },300); }
 function vibrate(pattern){ if(navigator.vibrate){ try{ navigator.vibrate(pattern); }catch(e){} } }
 
@@ -959,7 +957,7 @@ function startLightSession(){
 function launchRunner(queue, title){
   runnerState = {
     queue:queue, index:0, remainingMs:queue[0].duration*1000,
-    endTime:null, running:false, halfFired:false, title:title, announcedMarks:{}
+    endTime:null, running:false, title:title, announcedMarks:{}
   };
   document.getElementById('runner').classList.add('show');
   document.body.style.overflow='hidden';
@@ -986,7 +984,6 @@ function renderRunnerStep(justEntered){
     '<div class="runner-name'+(isRest?' rest':'')+'" id="runnerName">'+(isRest ? 'Descanso' : lib.name)+'</div>'+
     '<div class="runner-set">Serie '+step.setIndex+' de '+step.totalSets+(step.unilateral && step.kind==='work' ? ' · ambos lados' : '')+'</div>'+
     '<div class="runner-time" id="runnerTime">'+fmtTime(runnerState.remainingMs/1000)+'</div>'+
-    '<div class="runner-side" id="runnerSide"></div>'+
     (!isRest ? '<div class="runner-desc">'+(lib.brief||lib.cue)+'</div>' : '')+
     (nextLabel ? '<div class="runner-next">Siguiente: '+nextLabel+'</div>' : '<div class="runner-next">Última serie</div>')+
     (musicMode==='active' ? '<div class="runner-desc" id="spotifyRunnerNote"></div>' : '')+
@@ -1010,7 +1007,6 @@ function renderRunnerStep(justEntered){
       speak('Descanso.');
     }
   }
-  runnerState.halfFired = false;
 }
 
 function updateProgress(){
@@ -1067,16 +1063,6 @@ function tick(){
   if(timeEl) timeEl.textContent = fmtTime(remSec);
 
   var step = currentStep();
-  if(step.kind==='work' && step.unilateral && !runnerState.halfFired){
-    var half = step.duration/2;
-    if(remSec <= half){
-      runnerState.halfFired = true;
-      beepSwitch(); vibrate([80,60,80]);
-      var sideEl = document.getElementById('runnerSide');
-      if(sideEl){ sideEl.textContent = 'Cambia de lado'; setTimeout(function(){ if(sideEl) sideEl.textContent=''; }, 2200); }
-      speak('Cambia de lado.');
-    }
-  }
   timeAnnouncementMarks(step.duration).forEach(function(mark){
     if(!runnerState.announcedMarks[mark] && remSec <= mark){
       runnerState.announcedMarks[mark] = true;
