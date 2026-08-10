@@ -607,11 +607,13 @@ function escapeAttr(s){
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+var DEFAULT_SPOTIFY_CLIENT_ID = '388494b19a5b475383fe5a4d1c7dd1d8';
+
 function getRedirectUri(){
   return window.location.origin + window.location.pathname;
 }
 function getSpotifyClientId(){
-  try{ return localStorage.getItem('core_spotify_client_id') || ''; }catch(e){ return ''; }
+  try{ return localStorage.getItem('core_spotify_client_id') || DEFAULT_SPOTIFY_CLIENT_ID; }catch(e){ return DEFAULT_SPOTIFY_CLIENT_ID; }
 }
 function setSpotifyClientId(id){
   try{ localStorage.setItem('core_spotify_client_id', id); }catch(e){}
