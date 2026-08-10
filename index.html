@@ -775,13 +775,21 @@ function renderMusicCard(){
         '<button class="musicx" id="spotifyConfigCancel" type="button" aria-label="Cancelar">&times;</button>'+
       '</div>'+
       '<p class="musicnote">Créala gratis en <a class="spotifylink" href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener">developer.spotify.com/dashboard</a>. '+
-      'Como "Redirect URI" de la app pon exactamente: <code>'+escapeAttr(getRedirectUri())+'</code></p>';
+      'Como "Redirect URI" de la app pon exactamente: <code>'+escapeAttr(getRedirectUri())+'</code> '+
+      '<button class="btn btn-small btn-secondary" id="spotifyCopyUri" type="button">Copiar</button></p>';
     document.getElementById('spotifyClientIdSave').addEventListener('click', function(){
       var val = document.getElementById('spotifyClientIdInput').value.trim();
       if(!val) return;
       setSpotifyClientId(val);
       musicMode = 'none';
       renderMusicCard();
+    });
+    document.getElementById('spotifyCopyUri').addEventListener('click', function(){
+      var copyBtn = document.getElementById('spotifyCopyUri');
+      var done = function(){ copyBtn.textContent = 'Copiado'; setTimeout(function(){ copyBtn.textContent = 'Copiar'; }, 1500); };
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(getRedirectUri()).then(done).catch(function(){});
+      }
     });
     document.getElementById('spotifyConfigCancel').addEventListener('click', function(){ musicMode='none'; renderMusicCard(); });
 
