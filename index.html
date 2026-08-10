@@ -480,11 +480,11 @@ function renderSessionCard(){
     '<div class="card">'+
       '<span class="badge">'+info.tag+'</span>'+
       '<div class="daytitle">'+info.title+'</div>'+
-      '<p class="daydesc">'+info.desc+'</p>'+
+      '<button class="btn btn-primary" id="startBtn" style="margin-top:.7rem">Empezar entrenamiento</button>'+
+      '<p class="esttime" style="text-align:center;margin:.4rem 0 0">Duración estimada: ~'+Math.round(estimateSeconds(session)/60)+' min</p>'+
+      '<p class="daydesc" style="margin-top:.9rem">'+info.desc+'</p>'+
       '<ul class="exlist">'+rows+'</ul>'+
-      '<p class="esttime">Duración estimada: ~'+Math.round(estimateSeconds(session)/60)+' min</p>'+
-      '<button class="btn btn-primary" id="startBtn" style="margin-top:.9rem">Empezar entrenamiento</button>'+
-      '<button class="btn btn-secondary" id="lightBtn" style="margin-top:.6rem">Hacer algo ligero (4 min, opcional)</button>'+
+      '<button class="btn btn-secondary" id="lightBtn" style="margin-top:.9rem">Hacer algo ligero (4 min, opcional)</button>'+
     '</div>';
 
   document.getElementById('startBtn').addEventListener('click', function(){ startWorkout(session, info.title); });
@@ -583,7 +583,7 @@ function speak(text){
     var u = new SpeechSynthesisUtterance(text);
     u.lang = preferredVoice ? preferredVoice.lang : 'es-ES';
     if(preferredVoice) u.voice = preferredVoice;
-    u.rate = 1.3;
+    u.rate = 1.1;
     u.pitch = 0.92;
     u.volume = 1;
     window.speechSynthesis.speak(u);
@@ -874,11 +874,28 @@ function initMusicMode(){
   musicMode = (spotifyActiveUri && spotifyActiveName) ? 'active' : 'playlists';
 }
 
+function setSpotifyRunnerNote(msg){
+  var note = document.getElementById('spotifyRunnerNote');
+  if(note) note.textContent = msg || '';
+}
+
+function reportSpotifyPlaybackResult(r){
+  if(r && r.status===404) setSpotifyRunnerNote('🎵 Abre Spotify en tu móvil para activar el dispositivo, y vuelve a pulsar "Empezar entrenamiento".');
+  else if(r && r.status===403) setSpotifyRunnerNote('🎵 Controlar la reproducción requiere Spotify Premium.');
+  else if(r && r.status===401) setSpotifyRunnerNote('🎵 La sesión de Spotify caducó: ve al bloque de música y vuelve a conectar.');
+  else if(r && !r.ok) setSpotifyRunnerNote('🎵 Spotify no pudo iniciar la música (código '+r.status+').');
+  else setSpotifyRunnerNote('');
+}
+
 function startMusic(){
-  if(musicMode==='active' && spotifyActiveUri) spotifyPlayContext(spotifyActiveUri).catch(function(){});
+  if(musicMode!=='active' || !spotifyActiveUri) return;
+  spotifyPlayContext(spotifyActiveUri).then(reportSpotifyPlaybackResult)
+    .catch(function(){ setSpotifyRunnerNote('🎵 No se pudo conectar con Spotify.'); });
 }
 function resumeMusic(){
-  if(musicMode==='active') spotifyResume();
+  if(musicMode!=='active') return;
+  spotifyApi('PUT','/me/player/play').then(reportSpotifyPlaybackResult)
+    .catch(function(){ setSpotifyRunnerNote('🎵 No se pudo conectar con Spotify.'); });
 }
 function pauseMusic(){
   if(musicMode==='active') spotifyPause();
@@ -965,6 +982,7 @@ function renderRunnerStep(justEntered){
     '<div class="runner-side" id="runnerSide"></div>'+
     (!isRest ? '<div class="runner-desc">'+(lib.brief||lib.cue)+'</div>' : '')+
     (nextLabel ? '<div class="runner-next">Siguiente: '+nextLabel+'</div>' : '<div class="runner-next">Última serie</div>')+
+    (musicMode==='active' ? '<div class="runner-desc" id="spotifyRunnerNote"></div>' : '')+
     '<button class="runner-info" id="runnerInfoBtn">Ver ejercicio</button>';
 
   document.getElementById('runnerInfoBtn').addEventListener('click', function(){ openInfo(step.key); });
