@@ -43,7 +43,6 @@
     border-radius:12px;padding:9px 12px;margin-bottom:.8rem;}
   .musicrow{display:flex;align-items:center;gap:8px;width:100%;flex-wrap:wrap;}
   .musiclabel{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink);font-size:13px;}
-  .musicrow input[type=range]{width:86px;accent-color:var(--accent);}
   .musicrow input[type=text]{flex:1;min-width:140px;padding:8px 10px;border:1px solid var(--line);
     border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px;}
   .musicx{border:none;background:transparent;color:var(--ink-mute);font-size:19px;cursor:pointer;line-height:1;padding:0 2px;}
@@ -594,11 +593,7 @@ function stopSpeech(){
   try{ if(window.speechSynthesis) window.speechSynthesis.cancel(); }catch(e){}
 }
 
-var musicMode = 'none'; // 'none' | 'file' | 'spotify_input' | 'spotify'
-var musicAudio = null;
-var musicObjectUrl = null;
-var musicFileName = '';
-var musicVolumeValue = 55;
+var musicMode = 'none'; // 'none' | 'spotify_input' | 'spotify'
 var spotifyController = null;
 var spotifyApiLoading = false;
 var spotifyLastLink = '';
@@ -649,12 +644,9 @@ function loadSpotifyEmbed(uri){
 }
 
 function clearMusic(){
-  if(musicAudio){ musicAudio.pause(); musicAudio = null; }
-  if(musicObjectUrl){ URL.revokeObjectURL(musicObjectUrl); musicObjectUrl = null; }
   if(spotifyController){ try{ spotifyController.pause(); }catch(e){} }
   spotifyController = null;
   musicMode = 'none';
-  musicFileName = '';
   renderMusicCard();
 }
 
@@ -662,20 +654,7 @@ function renderMusicCard(){
   var el = document.getElementById('musicCard');
   if(!el) return;
 
-  if(musicMode==='file'){
-    el.innerHTML =
-      '<div class="musicrow">'+
-        '<span class="musiclabel">🎵 '+escapeAttr(musicFileName)+'</span>'+
-        '<input type="range" id="musicVolume" min="0" max="100" value="'+musicVolumeValue+'" aria-label="Volumen de la música">'+
-        '<button class="musicx" id="musicRemove" type="button" aria-label="Quitar música">&times;</button>'+
-      '</div>';
-    document.getElementById('musicVolume').addEventListener('input', function(e){
-      musicVolumeValue = Number(e.target.value);
-      if(musicAudio) musicAudio.volume = musicVolumeValue/100;
-    });
-    document.getElementById('musicRemove').addEventListener('click', clearMusic);
-
-  } else if(musicMode==='spotify_input'){
+  if(musicMode==='spotify_input'){
     el.innerHTML =
       '<div class="musicrow">'+
         '<input type="text" id="spotifyLink" placeholder="Pega el enlace de tu playlist de Spotify" value="'+escapeAttr(spotifyLastLink)+'">'+
@@ -707,42 +686,23 @@ function renderMusicCard(){
     el.innerHTML =
       '<div class="musicrow">'+
         '<span class="musiclabel">🎵 Música de fondo (opcional)</span>'+
-        '<button class="btn btn-small btn-secondary" id="musicPickBtn" type="button">Mi audio</button>'+
-        '<button class="btn btn-small btn-secondary" id="spotifyPickBtn" type="button">Spotify</button>'+
-        '<input type="file" id="musicFile" accept="audio/*" style="display:none">'+
+        '<button class="btn btn-small btn-secondary" id="spotifyPickBtn" type="button">Añadir playlist de Spotify</button>'+
       '</div>';
-    document.getElementById('musicPickBtn').addEventListener('click', function(){ document.getElementById('musicFile').click(); });
-    document.getElementById('musicFile').addEventListener('change', function(e){
-      var file = e.target.files && e.target.files[0];
-      if(!file) return;
-      if(musicObjectUrl) URL.revokeObjectURL(musicObjectUrl);
-      musicObjectUrl = URL.createObjectURL(file);
-      musicAudio = new Audio(musicObjectUrl);
-      musicAudio.loop = true;
-      musicAudio.volume = musicVolumeValue/100;
-      musicFileName = file.name;
-      musicMode = 'file';
-      renderMusicCard();
-    });
     document.getElementById('spotifyPickBtn').addEventListener('click', function(){ musicMode='spotify_input'; renderMusicCard(); });
   }
 }
 
 function startMusic(){
-  if(musicMode==='file' && musicAudio){ try{ musicAudio.currentTime = 0; musicAudio.play().catch(function(){}); }catch(e){} }
-  else if(musicMode==='spotify' && spotifyController){ try{ spotifyController.resume(); }catch(e){} }
+  if(musicMode==='spotify' && spotifyController){ try{ spotifyController.resume(); }catch(e){} }
 }
 function resumeMusic(){
-  if(musicMode==='file' && musicAudio){ try{ musicAudio.play().catch(function(){}); }catch(e){} }
-  else if(musicMode==='spotify' && spotifyController){ try{ spotifyController.resume(); }catch(e){} }
+  if(musicMode==='spotify' && spotifyController){ try{ spotifyController.resume(); }catch(e){} }
 }
 function pauseMusic(){
-  if(musicMode==='file' && musicAudio){ try{ musicAudio.pause(); }catch(e){} }
-  else if(musicMode==='spotify' && spotifyController){ try{ spotifyController.pause(); }catch(e){} }
+  if(musicMode==='spotify' && spotifyController){ try{ spotifyController.pause(); }catch(e){} }
 }
 function stopMusic(){
-  if(musicMode==='file' && musicAudio){ try{ musicAudio.pause(); musicAudio.currentTime = 0; }catch(e){} }
-  else if(musicMode==='spotify' && spotifyController){ try{ spotifyController.pause(); }catch(e){} }
+  if(musicMode==='spotify' && spotifyController){ try{ spotifyController.pause(); }catch(e){} }
 }
 
 var runnerState = null;
