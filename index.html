@@ -787,7 +787,9 @@ function spotifyPlayContext(uri){
     var deviceId = pickSpotifyDeviceId(result.devices);
     spotifyDeviceId = deviceId;
     if(!deviceId) return { status:404, ok:false, _stage:'nodevice' };
-    return spotifyApi('PUT','/me/player/play?device_id='+encodeURIComponent(deviceId), { context_uri: uri });
+    return spotifyApi('PUT','/me/player/shuffle?state=true&device_id='+encodeURIComponent(deviceId)).catch(function(){}).then(function(){
+      return spotifyApi('PUT','/me/player/play?device_id='+encodeURIComponent(deviceId), { context_uri: uri });
+    });
   });
 }
 function spotifyPause(){
