@@ -99,6 +99,8 @@
   .runner-time{font-size:76px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1;margin:.4rem 0;}
   .runner-next{font-size:13px;color:var(--ink-mute);margin-top:.8rem;}
   .runner-desc{font-size:13px;color:var(--ink-soft);max-width:320px;margin:.5rem auto 0;line-height:1.45;}
+  .runner-reps-label{font-size:14px;color:var(--ink-mute);margin-top:-.5rem;}
+  .runner-done-btn{width:auto;max-width:260px;margin-top:.8rem;padding:12px 24px;}
   .runner-info{margin-top:.7rem;background:transparent;border:1px solid var(--line);border-radius:10px;color:var(--ink-soft);
     font-size:13px;padding:6px 14px;cursor:pointer;}
   .runner-controls{display:flex;align-items:center;justify-content:center;gap:14px;padding:1rem 1rem 1.6rem;}
@@ -348,8 +350,8 @@ var EXLIB = {
 };
 
 var WARM = [
-  {key:'catcamel', sets:2, work:30, rest:5},
-  {key:'bridge_basic', sets:2, work:25, rest:5},
+  {key:'catcamel', sets:2, reps:8, rest:5},
+  {key:'bridge_basic', sets:2, reps:12, rest:5},
   {key:'breathing_bracing', sets:2, work:40, rest:5}
 ];
 
@@ -360,39 +362,39 @@ var COOLDOWN = [
 ];
 
 var CORE_A = [
-  {key:'deadbug', sets:3, work:45, rest:5},
-  {key:'birddog', sets:3, work:45, rest:5},
+  {key:'deadbug', sets:3, reps:10, rest:5},
+  {key:'birddog', sets:3, reps:8, rest:5},
   {key:'plank_front', sets:3, work:25, rest:5},
-  {key:'glute_bridge_bipodal', sets:3, work:30, rest:5},
+  {key:'glute_bridge_bipodal', sets:3, reps:15, rest:5},
   {key:'side_plank_knee', sets:2, work:35, rest:5}
 ];
 var CORE_A_PRO = [
-  {key:'deadbug', sets:3, work:50, rest:5},
-  {key:'birddog', sets:3, work:55, rest:5},
+  {key:'deadbug', sets:3, reps:14, rest:5},
+  {key:'birddog', sets:3, reps:10, rest:5},
   {key:'plank_front', sets:3, work:40, rest:5},
-  {key:'glute_bridge_unilateral', sets:3, work:40, rest:5},
+  {key:'glute_bridge_unilateral', sets:3, reps:10, rest:5},
   {key:'side_plank_foot', sets:3, work:55, rest:5}
 ];
 var CORE_B = [
-  {key:'plank_shoulder_tap', sets:3, work:40, rest:5},
+  {key:'plank_shoulder_tap', sets:3, reps:8, rest:5},
   {key:'bear_hold', sets:3, work:20, rest:5},
-  {key:'bridge_march', sets:3, work:40, rest:5},
-  {key:'deadbug_crossed', sets:2, work:40, rest:5},
+  {key:'bridge_march', sets:3, reps:8, rest:5},
+  {key:'deadbug_crossed', sets:2, reps:10, rest:5},
   {key:'side_plank_thread', sets:2, work:35, rest:5}
 ];
 var BAND_A = [
-  {key:'bridge_band', sets:3, work:30, rest:5},
-  {key:'deadbug_band', sets:3, work:40, rest:5},
-  {key:'birddog_band', sets:3, work:40, rest:5},
+  {key:'bridge_band', sets:3, reps:15, rest:5},
+  {key:'deadbug_band', sets:3, reps:8, rest:5},
+  {key:'birddog_band', sets:3, reps:8, rest:5},
   {key:'plank_band', sets:3, work:25, rest:5},
-  {key:'band_walk', sets:2, work:30, rest:5}
+  {key:'band_walk', sets:2, reps:10, rest:5}
 ];
 var BAND_B = [
   {key:'pallof_band', sets:3, work:35, rest:5},
-  {key:'row_antirot_band', sets:3, work:35, rest:5},
-  {key:'chop_band', sets:3, work:30, rest:5},
+  {key:'row_antirot_band', sets:3, reps:10, rest:5},
+  {key:'chop_band', sets:3, reps:10, rest:5},
   {key:'lateral_flex_band', sets:2, work:30, rest:5},
-  {key:'fire_hydrant_band', sets:3, work:25, rest:5}
+  {key:'fire_hydrant_band', sets:3, reps:10, rest:5}
 ];
 
 var SESSION_TYPES = {
@@ -410,10 +412,17 @@ function fmtTime(sec){
   return m + ':' + (s<10?'0':'') + s;
 }
 
+var SECONDS_PER_REP = 3;
+function exWorkSeconds(ex){
+  if(ex.work!==undefined) return ex.work;
+  var lib = EXLIB[ex.key];
+  return ex.reps * (lib && lib.unilateral ? 2 : 1) * SECONDS_PER_REP;
+}
+
 function estimateSeconds(session){
   var total = 0;
   WARM.concat(session||[]).concat(COOLDOWN).forEach(function(ex){
-    total += ex.sets*ex.work + ex.sets*ex.rest;
+    total += ex.sets*exWorkSeconds(ex) + ex.sets*ex.rest;
   });
   return total;
 }
@@ -498,7 +507,9 @@ function renderSessionCard(){
 
 function exRow(ex, phase){
   var lib = EXLIB[ex.key];
-  var meta = ex.sets + ' x ' + ex.work + ' s';
+  var meta = ex.work!==undefined
+    ? (ex.sets + ' x ' + ex.work + ' s')
+    : (ex.sets + ' x ' + ex.reps + ' reps' + (lib.unilateral ? '/lado' : ''));
   return '<li><span class="exname" data-key="'+ex.key+'">'+lib.name+'</span><span class="exmeta">'+meta+'</span></li>';
 }
 
@@ -928,11 +939,14 @@ function buildQueue(session){
   var queue = [];
   blocks.forEach(function(block){
     block.list.forEach(function(ex){
+      var isReps = ex.reps!==undefined;
       for(var s=1; s<=ex.sets; s++){
-        queue.push({phase:block.phase, key:ex.key, setIndex:s, totalSets:ex.sets, kind:'work', duration:ex.work, unilateral:!!EXLIB[ex.key].unilateral});
+        var step = {phase:block.phase, key:ex.key, setIndex:s, totalSets:ex.sets, kind:'work', unilateral:!!EXLIB[ex.key].unilateral};
+        if(isReps){ step.mode='reps'; step.target=ex.reps; } else { step.mode='time'; step.duration=ex.work; }
+        queue.push(step);
         var isLastOfAll = (block===blocks[blocks.length-1]) && (ex===block.list[block.list.length-1]) && (s===ex.sets);
         if(ex.rest>0 && !isLastOfAll){
-          queue.push({phase:block.phase, key:ex.key, setIndex:s, totalSets:ex.sets, kind:'rest', duration:ex.rest});
+          queue.push({phase:block.phase, key:ex.key, setIndex:s, totalSets:ex.sets, kind:'rest', mode:'time', duration:ex.rest});
         }
       }
     });
@@ -954,17 +968,17 @@ function startWorkout(session, title){
 
 function startLightSession(){
   var queue = [
-    {phase:'Ligero', key:'breathing_bracing', setIndex:1, totalSets:2, kind:'work', duration:30, unilateral:false},
-    {phase:'Ligero', key:'breathing_bracing', setIndex:2, totalSets:2, kind:'work', duration:30, unilateral:false},
-    {phase:'Ligero', key:'deadbug', setIndex:1, totalSets:2, kind:'work', duration:35, unilateral:true},
-    {phase:'Ligero', key:'deadbug', setIndex:2, totalSets:2, kind:'work', duration:35, unilateral:true}
+    {phase:'Ligero', key:'breathing_bracing', setIndex:1, totalSets:2, kind:'work', mode:'time', duration:30, unilateral:false},
+    {phase:'Ligero', key:'breathing_bracing', setIndex:2, totalSets:2, kind:'work', mode:'time', duration:30, unilateral:false},
+    {phase:'Ligero', key:'deadbug', setIndex:1, totalSets:2, kind:'work', mode:'reps', target:8, unilateral:true},
+    {phase:'Ligero', key:'deadbug', setIndex:2, totalSets:2, kind:'work', mode:'reps', target:8, unilateral:true}
   ];
   launchRunner(queue, 'Sesión ligera');
 }
 
 function launchRunner(queue, title){
   runnerState = {
-    queue:queue, index:0, remainingMs:queue[0].duration*1000,
+    queue:queue, index:0, remainingMs: queue[0].mode==='time' ? queue[0].duration*1000 : 0,
     endTime:null, running:false, title:title, announcedMarks:{}
   };
   document.getElementById('runner').classList.add('show');
@@ -985,14 +999,20 @@ function renderRunnerStep(justEntered){
   var lib = EXLIB[step.key];
   var body = document.getElementById('runnerBody');
   var isRest = step.kind==='rest';
+  var isRepsWork = step.mode==='reps' && !isRest;
   var nextLabel = isRest ? (EXLIB[runnerState.queue[runnerState.index+1] ? runnerState.queue[runnerState.index+1].key : step.key].name) : nextWorkLabel(runnerState.queue, runnerState.index);
+
+  var metricHtml = isRepsWork
+    ? '<div class="runner-time" id="runnerTime">'+step.target+'</div><div class="runner-reps-label">reps'+(step.unilateral?' por lado':'')+'</div>'
+    : '<div class="runner-time" id="runnerTime">'+fmtTime(runnerState.remainingMs/1000)+'</div>';
 
   body.innerHTML =
     '<div class="runner-phase">'+step.phase+'</div>'+
     '<div class="runner-name'+(isRest?' rest':'')+'" id="runnerName">'+(isRest ? 'Descanso' : lib.name)+'</div>'+
     '<div class="runner-set">Serie '+step.setIndex+' de '+step.totalSets+(step.unilateral && step.kind==='work' ? ' · ambos lados' : '')+'</div>'+
-    '<div class="runner-time" id="runnerTime">'+fmtTime(runnerState.remainingMs/1000)+'</div>'+
+    metricHtml+
     (!isRest ? '<div class="runner-desc">'+(lib.brief||lib.cue)+'</div>' : '')+
+    (isRepsWork ? '<button class="btn btn-primary runner-done-btn" id="runnerDoneBtn">✓ Serie hecha</button>' : '')+
     (nextLabel ? '<div class="runner-next">Siguiente: '+nextLabel+'</div>' : '<div class="runner-next">Última serie</div>')+
     (musicMode==='active' ? '<div class="runner-desc" id="spotifyRunnerNote"></div>' : '')+
     '<button class="runner-info" id="runnerInfoBtn">Ver ejercicio</button>'+
@@ -1002,14 +1022,18 @@ function renderRunnerStep(justEntered){
   if(musicMode==='active'){
     document.getElementById('spotifyRunnerNextBtn').addEventListener('click', spotifyNext);
   }
+  if(isRepsWork){
+    document.getElementById('runnerDoneBtn').addEventListener('click', function(){ advanceStep(); });
+  }
 
   updateProgress();
   runnerState.announcedMarks = {};
   if(justEntered){
     if(!isRest){
       beepWorkStart(); vibrate([120]);
-      if(step.setIndex===1){ speak(lib.name+'. '+(lib.brief||lib.cue)); }
-      else { speak('Serie '+step.setIndex+'. '+lib.name+'.'); }
+      var repsNote = isRepsWork ? (' '+step.target+' repeticiones'+(step.unilateral?' por lado':'')+'.') : '';
+      if(step.setIndex===1){ speak(lib.name+'.'+repsNote+' '+(lib.brief||lib.cue)); }
+      else { speak('Serie '+step.setIndex+'. '+lib.name+'.'+repsNote); }
     } else {
       beepRestStart(); vibrate([60]);
       speak('Descanso.');
@@ -1039,15 +1063,19 @@ var tickHandle = null;
 
 function resumeTimer(){
   runnerState.running = true;
-  runnerState.endTime = Date.now() + runnerState.remainingMs;
   document.getElementById('btnPause').innerHTML = '&#10074;&#10074;';
-  tick();
+  if(currentStep().mode==='time'){
+    runnerState.endTime = Date.now() + runnerState.remainingMs;
+    tick();
+  }
 }
 
 function pauseTimer(){
   runnerState.running = false;
-  runnerState.remainingMs = Math.max(0, runnerState.endTime - Date.now());
-  if(tickHandle) clearTimeout(tickHandle);
+  if(currentStep().mode==='time'){
+    runnerState.remainingMs = Math.max(0, runnerState.endTime - Date.now());
+    if(tickHandle) clearTimeout(tickHandle);
+  }
   stopSpeech();
   pauseMusic();
   document.getElementById('btnPause').innerHTML = '&#9654;';
@@ -1092,16 +1120,16 @@ function timeAnnouncementMarks(duration){
 }
 
 function advanceStep(){
+  if(tickHandle) clearTimeout(tickHandle);
   if(runnerState.index >= runnerState.queue.length - 1){
     finishWorkout();
     return;
   }
   runnerState.index += 1;
   var step = currentStep();
-  runnerState.remainingMs = step.duration*1000;
+  runnerState.remainingMs = step.mode==='time' ? step.duration*1000 : 0;
   renderRunnerStep(true);
-  runnerState.endTime = Date.now() + runnerState.remainingMs;
-  tick();
+  resumeTimer();
 }
 
 function goStep(dir){
@@ -1112,10 +1140,12 @@ function goStep(dir){
   if(newIdx > runnerState.queue.length-1) { finishWorkout(); return; }
   runnerState.index = newIdx;
   var step = currentStep();
-  runnerState.remainingMs = step.duration*1000;
+  runnerState.remainingMs = step.mode==='time' ? step.duration*1000 : 0;
   renderRunnerStep(false);
-  if(runnerState.running){
+  if(tickHandle) clearTimeout(tickHandle);
+  if(runnerState.running && step.mode==='time'){
     runnerState.endTime = Date.now() + runnerState.remainingMs;
+    tick();
   }
 }
 
