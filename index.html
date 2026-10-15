@@ -29,13 +29,6 @@
     padding-bottom:3rem;
   }
   .wrap{max-width:640px;margin:0 auto;padding:1.1rem 1rem 2rem;}
-  .typebar{display:flex;gap:8px;margin-bottom:.6rem;}
-  .typechip{flex:1;border:1px solid var(--line);background:var(--card);border-radius:12px;
-    padding:12px 10px;text-align:center;cursor:pointer;color:var(--ink);}
-  .typechip .tname{display:block;font-size:14px;font-weight:600;}
-  .typechip .tsub{display:block;font-size:11.5px;color:var(--ink-mute);margin-top:2px;}
-  .typechip.active{background:var(--accent);border-color:var(--accent);}
-  .typechip.active .tname,.typechip.active .tsub{color:var(--accent-ink);}
   .musiccard{background:var(--card);border:1px solid var(--line);
     border-radius:12px;padding:9px 12px;margin-bottom:.8rem;}
   .musicrow{display:flex;align-items:center;gap:8px;width:100%;flex-wrap:wrap;}
@@ -63,7 +56,9 @@
   .exlist li:first-child{border-top:none;}
   .exlist .exname{color:var(--ink);}
   .exlist .exmeta{color:var(--ink-mute);font-size:12.5px;white-space:nowrap;}
-  .sectionlabel{font-size:11px;font-weight:600;color:var(--ink-mute);text-transform:uppercase;letter-spacing:.05em;margin:.9rem 0 .2rem;}
+  .exlist li.exphase{border-top:none;padding:12px 0 2px;font-size:11px;font-weight:600;color:var(--ink-mute);
+    text-transform:uppercase;letter-spacing:.05em;}
+  .exlist li.exphase + li{border-top:none;}
   .esttime{font-size:12.5px;color:var(--ink-mute);margin-top:.7rem;}
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:none;border-radius:12px;
     font-size:15px;font-weight:600;padding:13px 18px;cursor:pointer;width:100%;}
@@ -73,10 +68,6 @@
   .btnrow{display:flex;gap:8px;margin-top:.9rem;}
   .btnrow .btn{width:auto;flex:1;}
   .light-note{font-size:12.5px;color:var(--ink-mute);margin-top:.6rem;line-height:1.5;}
-  .libgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-top:.6rem;}
-  .libcard{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:.6rem;text-align:center;cursor:pointer;}
-  .libcard svg{width:100%;height:56px;color:var(--ink-soft);}
-  .libcard .lname{font-size:12px;margin-top:4px;color:var(--ink);line-height:1.3;}
   .overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:flex-end;justify-content:center;z-index:60;}
   .overlay.show{display:flex;}
   .sheet{background:var(--card);width:100%;max-width:640px;border-radius:18px 18px 0 0;padding:1.1rem 1.2rem 1.5rem;
@@ -116,15 +107,9 @@
 </head>
 <body>
 <div class="wrap">
-  <div class="typebar" id="equipBar"></div>
-  <div class="typebar" id="typeBar"></div>
-
   <div class="musiccard" id="musicCard"></div>
 
   <div id="sessionCard"></div>
-
-  <div class="sectionlabel">Todos los ejercicios</div>
-  <div class="libgrid" id="libGrid"></div>
 </div>
 
 <div class="overlay" id="infoOverlay">
@@ -162,9 +147,14 @@ var POSES = {
   half_kneeling: '<circle cx="75" cy="28" r="8"/><path d="M78,35 L85,60"/><path d="M85,60 L100,86"/><path d="M85,60 L55,75"/><path d="M55,75 L50,86"/><line class="floor" x1="10" y1="88" x2="150" y2="88"/>',
   standing_row: '<circle cx="80" cy="20" r="9"/><path d="M80,29 L80,65"/><path d="M80,65 L68,92"/><path d="M80,65 L92,92"/><path d="M80,40 L55,46"/><path d="M55,46 L32,40"/><circle cx="27" cy="40" r="4"/><line class="floor" x1="10" y1="93" x2="150" y2="93"/>',
   standing_chop: '<circle cx="78" cy="20" r="9"/><path d="M78,29 L78,65"/><path d="M78,65 L66,92"/><path d="M78,65 L90,92"/><path d="M78,36 L113,16"/><circle cx="118" cy="13" r="4"/><line class="floor" x1="10" y1="93" x2="150" y2="93"/>',
-  standing_lateral_flex: '<circle cx="88" cy="21" r="9"/><path d="M85,30 L76,65"/><path d="M76,65 L64,92"/><path d="M76,65 L88,92"/><path d="M84,33 L110,15"/><circle cx="114" cy="13" r="4"/><line class="floor" x1="10" y1="93" x2="150" y2="93"/>',
+  standing_lateral_flex: '<circle cx="70" cy="18" r="9"/><path d="M70,27 L70,62"/><path d="M70,62 L58,92"/><path d="M70,62 L82,92"/><path d="M70,34 L56,44 L70,48"/><path d="M70,34 L84,44 L70,48"/><line x1="72" y1="48" x2="138" y2="88" stroke="currentColor" stroke-width="2" opacity="0.4" stroke-dasharray="4 3"/><circle cx="141" cy="89" r="4"/><line class="floor" x1="10" y1="93" x2="150" y2="93"/>',
   band_walk: '<circle cx="80" cy="20" r="9"/><path d="M80,29 L80,55"/><path d="M80,44 L58,58"/><path d="M80,44 L102,58"/><path d="M80,55 L54,90"/><path d="M80,55 L109,90"/><line x1="54" y1="90" x2="109" y2="90" stroke="currentColor" stroke-width="2" opacity="0.4" stroke-dasharray="4 3"/><line class="floor" x1="10" y1="93" x2="150" y2="93"/>',
-  quad_hydrant: '<circle cx="140" cy="38" r="9"/><path d="M132,44 L52,55"/><path d="M118,47 L118,86"/><path d="M62,53 L62,86"/><path d="M118,58 L146,44"/><line class="floor" x1="10" y1="88" x2="150" y2="88"/>'
+  quad_hydrant: '<circle cx="140" cy="38" r="9"/><path d="M132,44 L52,55"/><path d="M118,47 L118,86"/><path d="M62,53 L62,86"/><path d="M118,58 L146,44"/><line class="floor" x1="10" y1="88" x2="150" y2="88"/>',
+  hip_thrust: '<path d="M8,56 L46,56 M12,56 L12,88 M42,56 L42,88" stroke-width="3" opacity="0.45"/><circle cx="28" cy="42" r="8"/><path d="M36,50 L84,44"/><path d="M84,44 L110,50"/><path d="M110,50 L110,86"/><path d="M42,50 L76,40"/><rect x="74" y="31" width="18" height="9" rx="2" stroke-width="3"/><line class="floor" x1="10" y1="88" x2="150" y2="88"/>',
+  kneeling_chop: '<circle cx="70" cy="18" r="8"/><path d="M70,26 L70,58"/><path d="M70,58 L95,58 L95,88"/><path d="M70,58 L60,88 L36,88"/><path d="M70,34 L52,64"/><line x1="52" y1="64" x2="139" y2="11" stroke="currentColor" stroke-width="2" opacity="0.4" stroke-dasharray="4 3"/><circle cx="142" cy="9" r="4"/><line class="floor" x1="10" y1="90" x2="150" y2="90"/>',
+  kneeling_lift: '<circle cx="70" cy="18" r="8"/><path d="M70,26 L70,58"/><path d="M70,58 L95,58 L95,88"/><path d="M70,58 L60,88 L36,88"/><path d="M70,34 L52,20"/><line x1="52" y1="20" x2="139" y2="83" stroke="currentColor" stroke-width="2" opacity="0.4" stroke-dasharray="4 3"/><circle cx="142" cy="85" r="4"/><line class="floor" x1="10" y1="90" x2="150" y2="90"/>',
+  supine_fig4: '<circle cx="25" cy="60" r="9"/><path d="M34,62 L75,62"/><path d="M75,62 L95,42 L108,68"/><path d="M75,62 L80,44 L98,44"/><line class="floor" x1="10" y1="72" x2="150" y2="72"/>',
+  step_up: '<rect x="90" y="66" width="44" height="22" rx="2" stroke-width="3" opacity="0.45"/><circle cx="74" cy="16" r="8"/><path d="M75,24 L78,56"/><path d="M78,56 L98,52 L100,66"/><path d="M78,56 L72,72 L70,88"/><path d="M76,32 L64,48"/><line class="floor" x1="10" y1="88" x2="150" y2="88"/>'
 };
 
 function svgFor(poseKey){
@@ -216,13 +206,13 @@ var EXLIB = {
     'Forma una línea recta desde la cabeza hasta los talones.',
     'Mantén la posición sin dejar caer ni subir la cadera.'
   ], brief:'Mantén el cuerpo en línea recta, apoyado en antebrazos y pies.', cue:'Si la lumbar se hunde, sube la cadera un poco hasta alinear.'},
-  glute_bridge_bipodal:{name:'Puente de glúteo (bipodal)', pose:'supine_bridge', steps:[
-    'Túmbate boca arriba, rodillas dobladas y pies apoyados.',
-    'Activa el bracing.',
-    'Sube las caderas apretando los glúteos, sin arquear la zona lumbar.',
-    'Baja con control y repite.'
-  ], brief:'Sube la cadera apretando el glúteo, sin arquear la espalda.', cue:'Sube por los talones, aprieta el glúteo arriba, sin arquear en exceso.'},
-  glute_bridge_unilateral:{name:'Puente de glúteo a una pierna', pose:'supine_bridge', unilateral:true, steps:[
+  glute_bridge_bipodal:{name:'Puente de glúteo bipodal en banco (con peso)', pose:'hip_thrust', steps:[
+    'Siéntate en el suelo con la parte alta de la espalda (justo bajo las escápulas) apoyada en el borde de una silla o banco estable, pegado a la pared para que no se deslice.',
+    'Coloca el peso sobre la pelvis (mochila, garrafa o mancuerna) y sujétalo con las manos. Rodillas dobladas, pies apoyados a la anchura de la cadera.',
+    'Activa el bracing y sube la cadera empujando con los talones hasta que tronco y muslos queden en línea, sin arquear la zona lumbar.',
+    'Baja con control hasta casi tocar el suelo y repite.'
+  ], brief:'Espalda en el banco y peso en la pelvis: sube la cadera apretando el glúteo, sin arquear la lumbar.', cue:'Arriba, costillas abajo y glúteo apretado: la extensión es de cadera, no de espalda. Barbilla ligeramente metida.'},
+  glute_bridge_unilateral:{name:'Puente de glúteo unipodal', pose:'supine_bridge', unilateral:true, steps:[
     'Desde el puente de glúteo con las caderas ya elevadas, extiende una pierna manteniendo las rodillas alineadas.',
     'Mantén la cadera elevada y nivelada, sin que el lado libre caiga.',
     'Baja y sube la cadera con esa pierna extendida.',
@@ -263,18 +253,24 @@ var EXLIB = {
     'Vuelve a extender el brazo hacia arriba con control.',
     'Mantén la cadera elevada durante todo el movimiento y luego cambia de lado.'
   ], brief:'En plancha lateral, pasa el brazo por debajo del cuerpo girando el tronco.', cue:'El giro es lento y controlado, sin perder el apoyo.'},
-  pallof:{name:'Pallof isométrico', pose:'standing_pallof', unilateral:true, steps:[
-    'De pie, sujeta una mochila con algo de peso contra el pecho con ambas manos.',
-    'Activa el bracing.',
-    'Extiende los brazos hacia delante manteniendo el tronco totalmente quieto, sin rotar.',
-    'Vuelve a acercar la mochila al pecho con control, luego cambia el lado desde el que resistes.'
-  ], brief:'Extiende los brazos hacia delante sin dejar que el tronco rote.', cue:'El objetivo es que el tronco NO rote al extender los brazos. Si no tienes mochila, sustituye por dead bug cruzado.'},
+  pallof:{name:'Pallof isométrico con goma', pose:'standing_pallof', unilateral:true, steps:[
+    'Con la goma anclada a la altura del pecho, colócate de perfil y sujétala con ambas manos pegadas al esternón.',
+    'Activa el bracing, pies a la anchura de la cadera y rodillas ligeramente flexionadas.',
+    'Extiende los brazos al frente y mantenlos ahí, quietos, mientras la goma intenta girarte hacia el anclaje.',
+    'A mitad de tiempo, gírate y repite con el otro lado hacia la goma.'
+  ], brief:'Brazos extendidos y quietos: aguanta sin dejar que la goma te gire.', cue:'Si notas que el tronco gira, acércate al anclaje para reducir la tensión.'},
   childs_pose:{name:'Postura del niño (modificada)', pose:'childs_pose', steps:[
     'Siéntate sobre los talones con las rodillas separadas.',
     'Estira los brazos hacia delante y baja el pecho hacia el suelo.',
     'Deja caer la frente y respira con normalidad.',
     'Mantén sin rebotar, solo hasta notar un estiramiento suave.'
   ], brief:'Siéntate sobre los talones y estira los brazos hacia delante.', cue:'Sin forzar, solo hasta notar un estiramiento suave en lumbar y glúteo.'},
+  glute_stretch_supine:{name:'Estiramiento de glúteo tumbado (figura 4)', pose:'supine_fig4', unilateral:true, steps:[
+    'Túmbate boca arriba con las rodillas dobladas y los pies apoyados.',
+    'Cruza un tobillo sobre la rodilla contraria, formando un "4".',
+    'Si necesitas más estiramiento, sube la pierna de apoyo hacia ti sujetándola por detrás del muslo.',
+    'Mantén con la zona lumbar apoyada en el suelo y, a mitad de tiempo, cambia de lado.'
+  ], brief:'Tobillo sobre la rodilla contraria y estira el glúteo, con la lumbar apoyada.', cue:'La espalda baja no se despega del suelo; el estiramiento se nota en el glúteo, no en la lumbar.'},
   hip_flexor_stretch:{name:'Estiramiento flexor de cadera', pose:'half_kneeling', unilateral:true, steps:[
     'Ponte en apoyo de rodilla: una rodilla en el suelo, el otro pie apoyado delante.',
     'Empuja la cadera hacia delante manteniendo el tronco recto.',
@@ -311,12 +307,24 @@ var EXLIB = {
     'Forma una línea recta desde la cabeza hasta los talones.',
     'Mantén la posición sin dejar caer ni subir la cadera.'
   ], brief:'En plancha, separa los pies contra la goma manteniendo el cuerpo en línea recta.', cue:'Si la lumbar se hunde, sube la cadera un poco hasta alinear.'},
-  band_walk:{name:'Paso lateral con miniband', pose:'band_walk', steps:[
-    'Coloca una banda alrededor de los tobillos o justo encima de las rodillas (con banda larga, dale varias vueltas hasta que quede corta y tensa).',
-    'Ponte de pie con las rodillas ligeramente flexionadas y el tronco firme.',
-    'Da pasos laterales cortos manteniendo tensión constante en la goma, sin que las rodillas se junten.',
-    'Recorre unos pasos hacia un lado y luego hacia el otro.'
-  ], brief:'Da pasos laterales contra la goma sin que las rodillas se junten.', cue:'El tronco se mantiene quieto; el trabajo es de cadera, no de espalda.'},
+  band_walk:{name:'Paso lateral con miniband (cangrejo)', pose:'band_walk', unilateral:true, steps:[
+    'Coloca la miniband alrededor de los tobillos o justo encima de las rodillas.',
+    'Ponte de pie con las rodillas ligeramente flexionadas, cadera un poco atrás y el tronco firme.',
+    'Da pasos laterales cortos manteniendo tensión constante en la goma, sin que las rodillas se junten ni los pies lleguen a tocarse.',
+    'Haz todos los pasos hacia un lado y luego los mismos de vuelta hacia el otro.'
+  ], brief:'Pasos laterales cortos contra la goma, sin que las rodillas se junten.', cue:'El tronco se mantiene quieto y a la misma altura; el trabajo es de cadera, no de espalda.'},
+  split_squat:{name:'Zancada estática (split squat)', pose:'half_kneeling', unilateral:true, steps:[
+    'De pie, da un paso largo hacia atrás con una pierna; pies a la anchura de la cadera, como sobre dos raíles, no en línea.',
+    'Activa el bracing, tronco erguido y pelvis neutra.',
+    'Baja en vertical doblando ambas rodillas hasta que la de atrás casi roce el suelo.',
+    'Sube empujando con el pie de delante. Haz todas las repeticiones y cambia de pierna.'
+  ], brief:'Baja la rodilla de atrás hacia el suelo en vertical, con el tronco erguido, y sube con la pierna de delante.', cue:'El tronco no se inclina hacia delante. Si te cuesta el equilibrio, apoya una mano en la pared.'},
+  step_up:{name:'Subida al cajón (bajada controlada)', pose:'step_up', unilateral:true, steps:[
+    'Ponte frente a un cajón, escalón o banco estable, más o menos a la altura de media espinilla o de la rodilla.',
+    'Apoya el pie entero encima, activa el bracing y sube empujando con esa pierna, sin impulsarte con la de abajo.',
+    'Baja muy despacio (unos 3 segundos) hasta apoyar el otro pie en el suelo, controlando que la rodilla no se vaya hacia dentro.',
+    'Haz todas las repeticiones con la misma pierna y cambia.'
+  ], brief:'Sube con una pierna sin impulsarte y baja muy despacio, unos 3 segundos.', cue:'Lo importante es la bajada: lenta y controlada, con la rodilla alineada con el pie.'},
   pallof_band:{name:'Pallof press con goma', pose:'standing_pallof', unilateral:true, steps:[
     'Ancla la goma a un punto fijo a la altura del pecho (un pomo de puerta cerrada, una barandilla, o átala a la pata de un mueble pesado) y colócate de perfil, sujetándola con ambas manos.',
     'Activa el bracing.',
@@ -329,12 +337,18 @@ var EXLIB = {
     'Tira de la goma hacia las costillas sin que el tronco rote hacia el lado que tira.',
     'Vuelve a extender el brazo con control y repite antes de cambiar de lado.'
   ], brief:'Tira de la goma hacia las costillas sin que el tronco rote.', cue:'Si el hombro se va hacia atrás, es que el tronco está rotando: para el rango antes.'},
-  chop_band:{name:'Leñador con goma', pose:'standing_chop', unilateral:true, steps:[
-    'Ancla la goma en alto a un punto fijo (la bisagra de una puerta abierta, un gancho alto, o pasada por encima de algo firme) y colócate de perfil, sujetándola con ambas manos.',
-    'Activa el bracing.',
-    'Lleva la goma en diagonal desde arriba hacia abajo por delante del cuerpo, con los brazos casi extendidos.',
-    'Vuelve arriba con control sin dejar que el tronco rote ni se incline, luego cambia de lado.'
-  ], brief:'Lleva la goma en diagonal delante del cuerpo sin rotar el tronco.', cue:'El movimiento lo hacen los brazos y el core frena la rotación, no al revés.'},
+  chop_band:{name:'Leñador con goma (rodilla apoyada)', pose:'kneeling_chop', unilateral:true, steps:[
+    'Ancla la goma en alto (la bisagra de una puerta abierta, un gancho alto, o pasada por encima de algo firme) y colócate de perfil a ella.',
+    'Apoya en el suelo la rodilla más lejana al anclaje; la otra pierna delante, con el pie apoyado y la rodilla a 90°. Pon un cojín bajo la rodilla si molesta.',
+    'Activa el bracing y, con los brazos casi extendidos, lleva la goma en diagonal desde arriba hasta la cadera contraria, por delante del cuerpo.',
+    'Vuelve arriba con control sin que el tronco rote ni se incline. Al terminar, cambia de lado (y de rodilla).'
+  ], brief:'De rodillas, lleva la goma desde arriba hasta la cadera contraria sin rotar el tronco.', cue:'Cadera y hombros miran al frente todo el rato: se mueven los brazos y el tronco frena el giro.'},
+  lift_band:{name:'Leñador inverso con goma (rodilla apoyada)', pose:'kneeling_lift', unilateral:true, steps:[
+    'Ancla la goma en bajo (la pata de un mueble pesado o la parte baja de una puerta) y colócate de perfil a ella.',
+    'Apoya en el suelo la rodilla más lejana al anclaje; la otra pierna delante, con el pie apoyado y la rodilla a 90°. Pon un cojín bajo la rodilla si molesta.',
+    'Activa el bracing y, con los brazos casi extendidos, lleva la goma en diagonal desde la cadera más cercana al anclaje hasta por encima del hombro contrario.',
+    'Baja con control sin que el tronco rote ni se arquee. Al terminar, cambia de lado (y de rodilla).'
+  ], brief:'De rodillas, sube la goma desde la cadera hasta el hombro contrario sin rotar ni arquear.', cue:'Arriba no arquees la espalda: costillas abajo y glúteo de la pierna apoyada apretado.'},
   lateral_flex_band:{name:'Anti-flexión lateral con goma', pose:'standing_lateral_flex', unilateral:true, steps:[
     'Ancla la goma a un punto bajo (la pata de un mueble pesado, o pisándola con firmeza en el suelo) y colócate de pie con el lado del anclaje hacia la goma.',
     'Sujeta la goma con ambas manos a la altura del pecho.',
@@ -349,62 +363,45 @@ var EXLIB = {
   ], brief:'Eleva la rodilla hacia el lateral sin rotar la cadera.', cue:'El movimiento es solo de cadera; la espalda no se mueve.'}
 };
 
-var WARM = [
-  {key:'catcamel', sets:2, reps:8, rest:5},
-  {key:'bridge_basic', sets:2, reps:12, rest:5},
-  {key:'breathing_bracing', sets:2, work:40, rest:5}
+var BLOCKS = [
+  {phase:'Calentamiento', list:[
+    {key:'catcamel', sets:1, reps:10, rest:5},
+    {key:'breathing_bracing', sets:1, work:40, rest:5},
+    {key:'deadbug', sets:2, reps:10, rest:5},
+    {key:'birddog', sets:2, reps:8, rest:5}
+  ]},
+  {phase:'Glúteo y pierna', list:[
+    {key:'band_walk', sets:2, reps:10, rest:5},
+    {key:'glute_bridge_bipodal', sets:2, reps:12, rest:5},
+    {key:'glute_bridge_unilateral', sets:2, reps:8, rest:5},
+    {key:'split_squat', sets:2, reps:8, rest:5},
+    {key:'step_up', sets:2, reps:8, rest:5}
+  ]},
+  {phase:'Anti-rotación con goma', list:[
+    {key:'pallof_band', sets:2, reps:10, rest:5},
+    {key:'pallof', sets:2, work:30, rest:5},
+    {key:'row_antirot_band', sets:2, reps:10, rest:5},
+    {key:'chop_band', sets:2, reps:10, rest:5},
+    {key:'lift_band', sets:2, reps:10, rest:5},
+    {key:'lateral_flex_band', sets:2, work:30, rest:5}
+  ]},
+  {phase:'Planchas', list:[
+    {key:'plank_front', sets:2, work:30, rest:5},
+    {key:'side_plank_foot', sets:2, work:40, rest:5},
+    {key:'plank_shoulder_tap', sets:2, reps:8, rest:5}
+  ]},
+  {phase:'Vuelta a la calma', list:[
+    {key:'glute_stretch_supine', sets:1, work:60, rest:5},
+    {key:'hip_flexor_stretch', sets:1, work:60, rest:5},
+    {key:'breathing_cooldown', sets:1, work:45, rest:5}
+  ]}
 ];
 
-var COOLDOWN = [
-  {key:'childs_pose', sets:1, work:30, rest:5},
-  {key:'hip_flexor_stretch', sets:2, work:30, rest:5},
-  {key:'breathing_cooldown', sets:1, work:45, rest:5}
-];
-
-var CORE_A = [
-  {key:'deadbug', sets:3, reps:10, rest:5},
-  {key:'birddog', sets:3, reps:8, rest:5},
-  {key:'plank_front', sets:3, work:25, rest:5},
-  {key:'glute_bridge_bipodal', sets:3, reps:15, rest:5},
-  {key:'side_plank_knee', sets:2, work:35, rest:5}
-];
-var CORE_A_PRO = [
-  {key:'deadbug', sets:3, reps:14, rest:5},
-  {key:'birddog', sets:3, reps:10, rest:5},
-  {key:'plank_front', sets:3, work:40, rest:5},
-  {key:'glute_bridge_unilateral', sets:3, reps:10, rest:5},
-  {key:'side_plank_foot', sets:3, work:55, rest:5}
-];
-var CORE_B = [
-  {key:'plank_shoulder_tap', sets:3, reps:8, rest:5},
-  {key:'bear_hold', sets:3, work:20, rest:5},
-  {key:'bridge_march', sets:3, reps:8, rest:5},
-  {key:'deadbug_crossed', sets:2, reps:10, rest:5},
-  {key:'side_plank_thread', sets:2, work:35, rest:5}
-];
-var BAND_A = [
-  {key:'bridge_band', sets:3, reps:15, rest:5},
-  {key:'deadbug_band', sets:3, reps:8, rest:5},
-  {key:'birddog_band', sets:3, reps:8, rest:5},
-  {key:'plank_band', sets:3, work:25, rest:5},
-  {key:'band_walk', sets:2, reps:10, rest:5}
-];
-var BAND_B = [
-  {key:'pallof_band', sets:3, work:35, rest:5},
-  {key:'row_antirot_band', sets:3, reps:10, rest:5},
-  {key:'chop_band', sets:3, reps:10, rest:5},
-  {key:'lateral_flex_band', sets:2, work:30, rest:5},
-  {key:'fire_hydrant_band', sets:3, reps:10, rest:5}
-];
-
-var SESSION_TYPES = {
-  coreA:{equip:'none', short:'Estabilidad', title:'Estabilidad · Sin material', tag:'Core A', desc:'Dead bug, bird-dog, plancha frontal, puente de glúteo y plancha lateral.', session:CORE_A},
-  coreAPro:{equip:'none', short:'Estabilidad Pro', title:'Estabilidad Pro · Sin material', tag:'Core A Pro', desc:'Versión más exigente: puente de glúteo a una pierna, plancha lateral con apoyo en pie y series más largas.', session:CORE_A_PRO},
-  coreB:{equip:'none', short:'Anti-rotación', title:'Anti-rotación · Sin material', tag:'Core B', desc:'Plancha con toques de hombro, bear hold, marcha de puente y plancha con giro.', session:CORE_B},
-  bandA:{equip:'band', short:'Estabilidad', title:'Estabilidad · Con gomas', tag:'Banda A', desc:'Puente, dead bug, bird-dog y plancha con miniband, más paso lateral.', session:BAND_A},
-  bandB:{equip:'band', short:'Anti-rotación', title:'Anti-rotación · Con gomas', tag:'Banda B', desc:'Pallof press, remo anti-rotación, leñador y anti-flexión lateral con goma.', session:BAND_B}
+var ROUTINE = {
+  title:'Core y glúteo',
+  tag:'L5-S1 · L4-L5',
+  desc:'Material: miniband, goma larga anclada (puerta o barandilla), silla o banco, un peso (mochila, garrafa o mancuerna) y un cajón o escalón.'
 };
-var SESSION_ORDER_BY_EQUIP = { none: ['coreA','coreAPro','coreB'], band: ['bandA','bandB'] };
 
 function fmtTime(sec){
   sec = Math.max(0, Math.round(sec));
@@ -419,110 +416,42 @@ function exWorkSeconds(ex){
   return ex.reps * (lib && lib.unilateral ? 2 : 1) * SECONDS_PER_REP;
 }
 
-function estimateSeconds(session){
+function estimateSeconds(blocks){
   var total = 0;
-  WARM.concat(session||[]).concat(COOLDOWN).forEach(function(ex){
-    total += ex.sets*exWorkSeconds(ex) + ex.sets*ex.rest;
+  blocks.forEach(function(block){
+    block.list.forEach(function(ex){
+      total += ex.sets*exWorkSeconds(ex) + ex.sets*ex.rest;
+    });
   });
   return total;
 }
 
-var selectedEquip = 'none';
-var selectedSession = 'coreA';
-try{
-  var storedEquip = localStorage.getItem('core_selected_equip');
-  if(storedEquip==='none' || storedEquip==='band') selectedEquip = storedEquip;
-  var storedSession = localStorage.getItem('core_selected_session');
-  if(storedSession && SESSION_TYPES[storedSession] && SESSION_TYPES[storedSession].equip===selectedEquip) selectedSession = storedSession;
-  else selectedSession = SESSION_ORDER_BY_EQUIP[selectedEquip][0];
-}catch(e){}
-
-function saveSelection(){
-  try{
-    localStorage.setItem('core_selected_equip', selectedEquip);
-    localStorage.setItem('core_selected_session', selectedSession);
-  }catch(e){}
-}
-
-function currentSessionInfo(){ return SESSION_TYPES[selectedSession]; }
-
-function renderEquipBar(){
-  var el = document.getElementById('equipBar');
-  el.innerHTML =
-    '<button class="typechip'+(selectedEquip==='none'?' active':'')+'" data-equip="none">'+
-      '<span class="tname">Sin material</span><span class="tsub">En casa</span></button>'+
-    '<button class="typechip'+(selectedEquip==='band'?' active':'')+'" data-equip="band">'+
-      '<span class="tname">Con gomas</span><span class="tsub">Miniband / banda</span></button>';
-  Array.prototype.forEach.call(el.querySelectorAll('[data-equip]'), function(btn){
-    btn.addEventListener('click', function(){
-      selectedEquip = btn.getAttribute('data-equip');
-      if(SESSION_TYPES[selectedSession].equip !== selectedEquip){
-        selectedSession = SESSION_ORDER_BY_EQUIP[selectedEquip][0];
-      }
-      saveSelection();
-      renderEquipBar(); renderTypeBar(); renderSessionCard();
-    });
-  });
-}
-
-function renderTypeBar(){
-  var el = document.getElementById('typeBar');
-  var keys = SESSION_ORDER_BY_EQUIP[selectedEquip];
-  el.innerHTML = keys.map(function(key){
-    var info = SESSION_TYPES[key];
-    return '<button class="typechip'+(key===selectedSession?' active':'')+'" data-session="'+key+'">'+
-      '<span class="tname">'+info.short+'</span><span class="tsub">'+info.tag+'</span></button>';
-  }).join('');
-  Array.prototype.forEach.call(el.querySelectorAll('[data-session]'), function(btn){
-    btn.addEventListener('click', function(){
-      selectedSession = btn.getAttribute('data-session');
-      saveSelection();
-      renderTypeBar(); renderSessionCard();
-    });
-  });
-}
-
 function renderSessionCard(){
-  var info = currentSessionInfo();
-  var session = info.session;
+  var info = ROUTINE;
   var el = document.getElementById('sessionCard');
-  var rows = WARM.map(function(ex){ return exRow(ex,'Calentamiento'); }).join('') +
-             session.map(function(ex){ return exRow(ex,'Principal'); }).join('') +
-             COOLDOWN.map(function(ex){ return exRow(ex,'Vuelta a la calma'); }).join('');
+  var rows = BLOCKS.map(function(block){
+    return '<li class="exphase">'+block.phase+'</li>' + block.list.map(exRow).join('');
+  }).join('');
 
   el.innerHTML =
     '<div class="card">'+
       '<span class="badge">'+info.tag+'</span>'+
       '<div class="daytitle">'+info.title+'</div>'+
       '<button class="btn btn-primary" id="startBtn" style="margin-top:.7rem">Empezar entrenamiento</button>'+
-      '<p class="esttime" style="text-align:center;margin:.4rem 0 0">Duración estimada: ~'+Math.round(estimateSeconds(session)/60)+' min</p>'+
+      '<p class="esttime" style="text-align:center;margin:.4rem 0 0">Duración estimada: ~'+Math.round(estimateSeconds(BLOCKS)/60)+' min</p>'+
       '<p class="daydesc" style="margin-top:.9rem">'+info.desc+'</p>'+
       '<ul class="exlist">'+rows+'</ul>'+
-      '<button class="btn btn-secondary" id="lightBtn" style="margin-top:.9rem">Hacer algo ligero (4 min, opcional)</button>'+
     '</div>';
 
-  document.getElementById('startBtn').addEventListener('click', function(){ startWorkout(session, info.title); });
-  document.getElementById('lightBtn').addEventListener('click', startLightSession);
+  document.getElementById('startBtn').addEventListener('click', function(){ startWorkout(BLOCKS, info.title); });
 }
 
-function exRow(ex, phase){
+function exRow(ex){
   var lib = EXLIB[ex.key];
   var meta = ex.work!==undefined
     ? (ex.sets + ' x ' + ex.work + ' s')
     : (ex.sets + ' x ' + ex.reps + ' reps' + (lib.unilateral ? '/lado' : ''));
   return '<li><span class="exname" data-key="'+ex.key+'">'+lib.name+'</span><span class="exmeta">'+meta+'</span></li>';
-}
-
-function renderLibrary(){
-  var el = document.getElementById('libGrid');
-  var seen = {};
-  var html = '';
-  Object.keys(EXLIB).forEach(function(key){
-    var lib = EXLIB[key];
-    if(seen[lib.name]) return; seen[lib.name]=true;
-    html += '<div class="libcard" data-key="'+key+'">'+svgFor(lib.pose)+'<div class="lname">'+lib.name+'</div></div>';
-  });
-  el.innerHTML = html;
 }
 
 function openInfo(key){
@@ -930,12 +859,7 @@ function stopMusic(){
 
 var runnerState = null;
 
-function buildQueue(session){
-  var blocks = [
-    {phase:'Calentamiento', list: WARM},
-    {phase:'Principal', list: session},
-    {phase:'Vuelta a la calma', list: COOLDOWN}
-  ];
+function buildQueue(blocks){
   var queue = [];
   blocks.forEach(function(block){
     block.list.forEach(function(ex){
@@ -961,19 +885,8 @@ function nextWorkLabel(queue, fromIdx){
   return null;
 }
 
-function startWorkout(session, title){
-  var queue = buildQueue(session);
-  launchRunner(queue, title);
-}
-
-function startLightSession(){
-  var queue = [
-    {phase:'Ligero', key:'breathing_bracing', setIndex:1, totalSets:2, kind:'work', mode:'time', duration:30, unilateral:false},
-    {phase:'Ligero', key:'breathing_bracing', setIndex:2, totalSets:2, kind:'work', mode:'time', duration:30, unilateral:false},
-    {phase:'Ligero', key:'deadbug', setIndex:1, totalSets:2, kind:'work', mode:'reps', target:8, unilateral:true},
-    {phase:'Ligero', key:'deadbug', setIndex:2, totalSets:2, kind:'work', mode:'reps', target:8, unilateral:true}
-  ];
-  launchRunner(queue, 'Sesión ligera');
+function startWorkout(blocks, title){
+  launchRunner(buildQueue(blocks), title);
 }
 
 function launchRunner(queue, title){
@@ -1176,10 +1089,7 @@ function exitRunner(){
   document.body.style.overflow='';
 }
 
-renderEquipBar();
-renderTypeBar();
 renderSessionCard();
-renderLibrary();
 handleSpotifyRedirect();
 initMusicMode();
 renderMusicCard();
