@@ -491,21 +491,51 @@ function pickVoice(){
 pickVoice();
 try{ if(window.speechSynthesis) window.speechSynthesis.onvoiceschanged = pickVoice; }catch(e){}
 
-function speak(text){
+function makeUtterance(text){
+  var u = new SpeechSynthesisUtterance(text);
+  u.lang = preferredVoice ? preferredVoice.lang : 'es-ES';
+  if(preferredVoice) u.voice = preferredVoice;
+  u.rate = 1.1;
+  u.pitch = 0.92;
+  u.volume = 1;
+  u.onend = u.onerror = onSpeechEnd;
+  return u;
+}
+// fresh: descarta las frases pendientes para que la voz no vaya por detrás de la pantalla.
+function speak(text, fresh){
   if(!soundOn) return;
   try{
+    var synth = window.speechSynthesis;
+    if(!synth) return;
+    if(fresh && (synth.speaking || synth.pending)){
+      synth.cancel();
+      // Hablar justo después de cancel() a veces se pierde: se deja un respiro.
+      setTimeout(function(){ synth.speak(makeUtterance(text)); }, 80);
+    } else {
+      synth.speak(makeUtterance(text));
+    }
+  }catch(e){}
+}
+// En iOS la voz solo funciona si la primera frase se lanza dentro del toque del usuario.
+function unlockSpeech(){
+  try{
     if(!window.speechSynthesis) return;
-    var u = new SpeechSynthesisUtterance(text);
-    u.lang = preferredVoice ? preferredVoice.lang : 'es-ES';
-    if(preferredVoice) u.voice = preferredVoice;
-    u.rate = 1.1;
-    u.pitch = 0.92;
-    u.volume = 1;
+    var u = new SpeechSynthesisUtterance(' ');
+    u.volume = 0;
     window.speechSynthesis.speak(u);
   }catch(e){}
 }
 function stopSpeech(){
   try{ if(window.speechSynthesis) window.speechSynthesis.cancel(); }catch(e){}
+}
+// Si la voz ha interrumpido a Spotify (pasa en iPhone), se comprueba al terminar de hablar.
+var speechEndTimer = null;
+function onSpeechEnd(){
+  if(speechEndTimer) clearTimeout(speechEndTimer);
+  speechEndTimer = setTimeout(function(){
+    try{ if(window.speechSynthesis && (window.speechSynthesis.speaking || window.speechSynthesis.pending)) return; }catch(e){}
+    ensureMusicPlaying();
+  }, 700);
 }
 
 var musicMode = 'none'; // 'none' | 'config' | 'active'
@@ -619,17 +649,25 @@ function handleSpotifyRedirect(){
   }).catch(function(){});
 }
 
+// Spotify invalida el refresh token al usarlo: dos renovaciones a la vez harían fallar una
+// de las peticiones (por ejemplo, la pausa). Se comparte una única renovación en curso.
+var spotifyRefreshInFlight = null;
 function refreshSpotifyToken(){
+  if(spotifyRefreshInFlight) return spotifyRefreshInFlight;
   var t = getSpotifyTokenData();
   var clientId = getSpotifyClientId();
   if(!t.refresh || !clientId) return Promise.resolve('');
   var body = new URLSearchParams({ client_id: clientId, grant_type:'refresh_token', refresh_token: t.refresh });
-  return fetch('https://accounts.spotify.com/api/token', {
+  spotifyRefreshInFlight = fetch('https://accounts.spotify.com/api/token', {
     method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body.toString()
   }).then(function(r){ return r.json(); }).then(function(data){
     if(data.access_token){ saveSpotifyTokens(data); return data.access_token; }
     return '';
-  }).catch(function(){ return ''; });
+  }).catch(function(){ return ''; }).then(function(token){
+    spotifyRefreshInFlight = null;
+    return token;
+  });
+  return spotifyRefreshInFlight;
 }
 
 function getSpotifyAccessToken(){
@@ -690,7 +728,8 @@ function pickSpotifyDeviceId(devices){
   return devices[0].id;
 }
 
-function spotifyPlayContext(uri){
+// stillWanted (opcional): si devuelve false antes del play, no se llega a poner la música.
+function spotifyPlayContext(uri, stillWanted){
   return spotifyGetDevices().then(function(result){
     if(result.error===401 || result.error===403){
       return { status: result.error, ok:false, _msg: result.message, _stage:'devices' };
@@ -699,6 +738,7 @@ function spotifyPlayContext(uri){
     spotifyDeviceId = deviceId;
     if(!deviceId) return { status:404, ok:false, _stage:'nodevice' };
     return spotifyApi('PUT','/me/player/shuffle?state=true&device_id='+encodeURIComponent(deviceId)).catch(function(){}).then(function(){
+      if(stillWanted && !stillWanted()) return null;
       return spotifyApi('PUT','/me/player/play?device_id='+encodeURIComponent(deviceId), { context_uri: uri });
     });
   });
@@ -810,22 +850,59 @@ function reportSpotifyPlaybackResult(r){
   }
 }
 
+// musicWanted: la rutina está en marcha y la música debería estar sonando.
+var musicWanted = false;
+var musicWatchHandle = null;
+var musicCheckBusy = false;
+
 function startMusic(){
-  if(musicMode!=='active' || !spotifyActiveUri) return;
-  spotifyPlayContext(spotifyActiveUri).then(reportSpotifyPlaybackResult)
-    .catch(function(){ setSpotifyRunnerNote('🎵 No se pudo conectar con Spotify.'); });
+  if(musicMode!=='active' || !spotifyActiveUri) return Promise.resolve();
+  musicWanted = true;
+  return spotifyPlayContext(spotifyActiveUri, function(){ return musicWanted; }).then(function(r){
+    // Si se ha salido o pausado mientras Spotify respondía, no se deja sonando.
+    if(!musicWanted && r && r.ok) spotifyPause();
+    reportSpotifyPlaybackResult(r);
+  }).catch(function(){ setSpotifyRunnerNote('🎵 No se pudo conectar con Spotify.'); });
 }
 function resumeMusic(){
   if(musicMode!=='active') return;
-  var path = '/me/player/play' + (spotifyDeviceId ? ('?device_id='+encodeURIComponent(spotifyDeviceId)) : '');
-  spotifyApi('PUT', path).then(reportSpotifyPlaybackResult)
-    .catch(function(){ setSpotifyRunnerNote('🎵 No se pudo conectar con Spotify.'); });
+  musicWanted = true;
+  spotifyResume().then(function(r){
+    // El móvil puede haber dejado de figurar como dispositivo durante la pausa.
+    if(r && r.status===404) return startMusic();
+    reportSpotifyPlaybackResult(r);
+  }).catch(function(){ setSpotifyRunnerNote('🎵 No se pudo conectar con Spotify.'); });
 }
 function pauseMusic(){
+  musicWanted = false;
   if(musicMode==='active') spotifyPause();
 }
 function stopMusic(){
+  musicWanted = false;
+  stopMusicWatch();
   if(musicMode==='active') spotifyPause();
+}
+
+// Si algo ha cortado la música (la voz en iPhone, una notificación...), se vuelve a poner.
+function ensureMusicPlaying(){
+  if(musicMode!=='active' || !musicWanted || musicCheckBusy) return;
+  musicCheckBusy = true;
+  spotifyApi('GET','/me/player').then(function(r){
+    if(r.status===204) return null;
+    return r.ok ? r.json() : undefined;
+  }).then(function(state){
+    if(!musicWanted || state===undefined || (state && state.is_playing)) return;
+    if(state && state.device && state.device.id) spotifyDeviceId = state.device.id;
+    return state ? spotifyResume() : startMusic();
+  }).catch(function(){}).then(function(){ musicCheckBusy = false; });
+}
+function startMusicWatch(){
+  stopMusicWatch();
+  if(musicMode==='active') musicWatchHandle = setInterval(ensureMusicPlaying, 20000);
+}
+function stopMusicWatch(){
+  if(musicWatchHandle) clearInterval(musicWatchHandle);
+  musicWatchHandle = null;
 }
 
 var runnerState = null;
@@ -867,13 +944,29 @@ function launchRunner(queue, title){
   };
   document.getElementById('runner').classList.add('show');
   document.body.style.overflow='hidden';
+  // Ambos tienen que hacerse dentro del toque en "Empezar" para que iOS deje sonar.
   ensureAudio();
   stopSpeech();
-  speak('Empieza '+title+'.');
-  startMusic();
   renderRunnerControls();
-  renderRunnerStep(true);
-  resumeTimer();
+  renderRunnerStep(false);
+
+  var state = runnerState;
+  var begin = function(){
+    if(runnerState!==state || state.started) return;
+    state.started = true;
+    announceStep('Empieza '+title+'. ');
+    if(!state.running) resumeTimer();
+  };
+  if(musicMode==='active'){
+    // Spotify tarda un poco en sonar y, al arrancar, puede cortar la voz: se espera a que empiece.
+    // Como la primera frase ya no se dice en el toque, se desbloquea la voz con una frase muda.
+    unlockSpeech();
+    startMusic().then(function(){ setTimeout(begin, 800); });
+    setTimeout(begin, 3500);
+    startMusicWatch();
+  } else {
+    begin();
+  }
 }
 
 function currentStep(){ return runnerState.queue[runnerState.index]; }
@@ -912,16 +1005,21 @@ function renderRunnerStep(justEntered){
 
   updateProgress();
   runnerState.announcedMarks = {};
-  if(justEntered){
-    if(!isRest){
-      beepWorkStart(); vibrate([120]);
-      var repsNote = isRepsWork ? (' '+step.target+' repeticiones'+(step.unilateral?' por lado':'')+'.') : '';
-      if(step.setIndex===1){ speak(lib.name+'.'+repsNote+' '+(lib.brief||lib.cue)); }
-      else { speak('Serie '+step.setIndex+'. '+lib.name+'.'+repsNote); }
-    } else {
-      beepRestStart(); vibrate([60]);
-      speak('Descanso.');
-    }
+  runnerState.lastBeepSec = null;
+  if(justEntered) announceStep('');
+}
+
+function announceStep(prefix){
+  var step = currentStep();
+  var lib = EXLIB[step.key];
+  if(step.kind!=='rest'){
+    beepWorkStart(); vibrate([120]);
+    var repsNote = step.mode==='reps' ? (' '+step.target+' repeticiones'+(step.unilateral?' por lado':'')+'.') : '';
+    if(step.setIndex===1){ speak(prefix+lib.name+'.'+repsNote+' '+(lib.brief||lib.cue), true); }
+    else { speak(prefix+'Serie '+step.setIndex+'. '+lib.name+'.'+repsNote, true); }
+  } else {
+    beepRestStart(); vibrate([60]);
+    speak(prefix+'Descanso.', true);
   }
 }
 
@@ -948,6 +1046,7 @@ var tickHandle = null;
 function resumeTimer(){
   runnerState.running = true;
   document.getElementById('btnPause').innerHTML = '&#10074;&#10074;';
+  if(tickHandle) clearTimeout(tickHandle);
   if(currentStep().mode==='time'){
     runnerState.endTime = Date.now() + runnerState.remainingMs;
     tick();
@@ -989,7 +1088,10 @@ function tick(){
       speak('Quedan '+mark+' segundos.');
     }
   });
-  if(remSec <= 3.05 && remSec > 0){
+  // Un pitido por segundo en los 3 últimos (antes sonaba en cada refresco, unas 12 veces).
+  var wholeSec = Math.ceil(remSec);
+  if(wholeSec <= 3 && runnerState.lastBeepSec !== wholeSec){
+    runnerState.lastBeepSec = wholeSec;
     beepTick();
   }
 
@@ -1035,9 +1137,11 @@ function goStep(dir){
 
 function finishWorkout(){
   if(tickHandle) clearTimeout(tickHandle);
+  // La música sigue sonando en la pantalla final, pero ya no se vuelve a forzar.
+  musicWanted = false;
+  stopMusicWatch();
   beepFinish(); vibrate([120,80,120,80,200]);
-  stopSpeech();
-  speak('Sesión completada. Buen trabajo.');
+  speak('Sesión completada. Buen trabajo.', true);
   var body = document.getElementById('runnerBody');
   body.innerHTML =
     '<div class="donecard">'+
